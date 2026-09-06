@@ -6,7 +6,11 @@
 
 **Vercel** - https://winback-final-lac.vercel.app/
 
-**Demo Video** - 
+**Demo Video** - https://youtu.be/AXVH13EHEqU
+
+Test account details:
+Email - test@test.com
+Password - test123
 
 ## The Problem
 
