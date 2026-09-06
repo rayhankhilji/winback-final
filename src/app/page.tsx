@@ -40,7 +40,7 @@ export default function DashboardPage() {
     { label: 'Companies', value: companies.length, icon: Building2Icon }, { label: 'Documents ingested', value: documents, icon: FileTextIcon },
     { label: 'Evidence-linked findings', value: findings, icon: SparklesIcon },
   ];
-  return <div className="mx-auto max-w-[1500px] space-y-8">
+  return <div className="wb-page space-y-8">
     <header className="flex min-h-10 flex-wrap items-center justify-between gap-4 border-b border-[var(--hairline)] pb-5"><div className="flex items-center gap-3"><span className="rounded-lg border bg-white px-2 py-1 text-xs text-muted-foreground">Home</span><p className="text-sm text-muted-foreground">Portfolio intelligence</p></div><Link href="/companies/new" className="rounded-xl border bg-white px-3 py-2 text-sm font-medium shadow-sm transition-colors hover:bg-[var(--surface-sunken)]">Add company</Link></header>
     {error && <p role="alert" className="rounded-lg border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive">{error}</p>}
     <section className="wb-ambient relative isolate min-h-[360px] overflow-hidden rounded-[30px] border border-white/70 px-7 py-9 sm:px-10 sm:py-11">

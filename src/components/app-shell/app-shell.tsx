@@ -12,7 +12,7 @@
 import { usePathname } from 'next/navigation';
 import { Sidebar } from '@/components/app-shell/sidebar';
 
-const PUBLIC_PATHS = ['/sign-in', '/sign-up', '/forgot-password', '/reset-password'];
+const PUBLIC_PATHS = ['/sign-in', '/sign-up', '/forgot-password', '/reset-password', '/onboarding', '/motion-preview'];
 
 function isPublicPath(pathname: string): boolean {
   return PUBLIC_PATHS.includes(pathname) || pathname.startsWith('/invite/');
@@ -31,7 +31,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   return (
     <div className="flex min-h-full flex-1 bg-[var(--surface-canvas)]">
       {showSidebar && <Sidebar />}
-      <main className="min-w-0 flex-1 px-5 py-6 sm:px-8 lg:px-10 lg:py-8">{children}</main>
+      <main className="wb-workspace-main min-w-0 flex-1 px-5 py-6 sm:px-8 lg:px-10 lg:py-8">{children}</main>
     </div>
   );
 }

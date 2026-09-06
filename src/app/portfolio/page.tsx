@@ -37,7 +37,7 @@ export default function PortfolioPage() {
     { label: 'Evidence-linked findings', value: findingCount, icon: SparklesIcon },
   ];
 
-  return <div className="mx-auto max-w-[1500px] space-y-8">
+  return <div className="wb-page space-y-8">
     <header className="border-b border-[var(--hairline)] pb-5"><p className="text-sm text-muted-foreground">Cross-portfolio view</p><h1 className="wb-display mt-2 text-4xl text-[var(--text-display)]">Portfolio</h1><p className="mt-3 max-w-2xl text-[15px] leading-6 text-muted-foreground">A single view of the companies, documents and source-grounded work across your portfolio.</p></header>
     {error && <p role="alert" className="rounded-xl border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive">{error}</p>}
     <section className="grid gap-4 md:grid-cols-3">{summary.map(({ label, value, icon: Icon }) => <Card key={label} className="wb-soft-card"><CardContent className="flex min-h-36 items-start justify-between p-6"><div><p className="text-[15px] text-muted-foreground">{label}</p><p className="mt-4 text-4xl font-medium tracking-tight tabular-nums">{loading ? '—' : value}</p></div><Icon className="size-5 text-[var(--interactive-text)]" /></CardContent></Card>)}</section>

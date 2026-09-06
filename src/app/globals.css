@@ -151,18 +151,26 @@
   --failed-wash: #F2E6E4;
   --failed-text: #B3402A;
 
+  /* Bounded artwork colours. These only live in decorative, non-semantic
+     artwork panels; pink remains reserved for AI-generated content. */
+  --ambient-cobalt: #6EA8E1;
+  --ambient-mint: #8DCCAC;
+  --ambient-coral: #F3A46D;
+  --ambient-violet: #A89AE4;
+
   --ease-standard: cubic-bezier(0.2, 0, 0, 1);
 }
 
 /* Ambient colour is contained in artwork and onboarding moments, not used as
-   a substitute for hierarchy. It is intentionally tokenised here so no
-   component has to introduce a private palette. */
+   a substitute for hierarchy. Pink is deliberately absent: it continues to
+   mean AI-generated or extracted content everywhere in the product. */
 .wb-ambient {
   background:
-    radial-gradient(ellipse 58% 90% at 8% 106%, color-mix(in srgb, var(--interactive) 62%, transparent), transparent 68%),
-    radial-gradient(ellipse 48% 80% at 88% 14%, color-mix(in srgb, var(--ai) 63%, transparent), transparent 68%),
-    radial-gradient(ellipse 52% 76% at 56% 82%, color-mix(in srgb, var(--positive) 58%, transparent), transparent 70%),
-    linear-gradient(132deg, var(--surface-card), var(--interactive-wash) 42%, var(--ai-wash));
+    radial-gradient(ellipse 58% 90% at 8% 106%, color-mix(in srgb, var(--ambient-cobalt) 72%, transparent), transparent 68%),
+    radial-gradient(ellipse 48% 80% at 88% 14%, color-mix(in srgb, var(--ambient-violet) 72%, transparent), transparent 68%),
+    radial-gradient(ellipse 52% 76% at 56% 82%, color-mix(in srgb, var(--ambient-mint) 72%, transparent), transparent 70%),
+    radial-gradient(ellipse 54% 82% at 74% 93%, color-mix(in srgb, var(--ambient-coral) 68%, transparent), transparent 70%),
+    linear-gradient(132deg, var(--surface-card), color-mix(in srgb, var(--ambient-cobalt) 26%, white) 42%, color-mix(in srgb, var(--ambient-violet) 20%, white));
   background-size: 135% 135%;
   animation: wb-ambient-drift 18s ease-in-out infinite alternate;
 }
@@ -183,11 +191,70 @@
   box-shadow: 0 18px 50px color-mix(in srgb, var(--text-display) 8%, transparent), 0 2px 7px color-mix(in srgb, var(--text-display) 5%, transparent);
 }
 
-.wb-source-card { border-color: color-mix(in srgb, var(--text-display) 10%, transparent); }
-.wb-source-card:nth-child(4n + 1) { background: linear-gradient(135deg, color-mix(in srgb, var(--positive) 62%, white), color-mix(in srgb, var(--positive) 28%, white)); }
-.wb-source-card:nth-child(4n + 2) { background: linear-gradient(135deg, color-mix(in srgb, var(--interactive) 62%, white), color-mix(in srgb, var(--interactive) 26%, white)); }
-.wb-source-card:nth-child(4n + 3) { background: linear-gradient(135deg, color-mix(in srgb, var(--ai) 58%, white), color-mix(in srgb, var(--ai) 25%, white)); }
-.wb-source-card:nth-child(4n + 4) { background: linear-gradient(135deg, color-mix(in srgb, var(--review-text) 56%, white), color-mix(in srgb, var(--review-text) 22%, white)); }
+.wb-workspace-main {
+  background:
+    radial-gradient(ellipse 50% 35% at 94% 0%, color-mix(in srgb, var(--ambient-violet) 8%, transparent), transparent 76%),
+    radial-gradient(ellipse 42% 30% at 12% 100%, color-mix(in srgb, var(--ambient-mint) 8%, transparent), transparent 76%),
+    var(--surface-canvas);
+}
+
+.wb-page {
+  width: 100%;
+  max-width: 1500px;
+  margin-inline: auto;
+  animation: wb-page-enter 220ms var(--ease-standard) both;
+}
+
+@keyframes wb-page-enter {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.wb-page-header {
+  padding-bottom: 24px;
+  border-bottom: 1px solid var(--hairline);
+}
+
+.wb-panel-artwork {
+  position: relative;
+  overflow: hidden;
+  background:
+    radial-gradient(ellipse 48% 125% at 10% 85%, color-mix(in srgb, var(--ambient-cobalt) 70%, transparent), transparent 70%),
+    radial-gradient(ellipse 48% 125% at 88% 10%, color-mix(in srgb, var(--ambient-violet) 68%, transparent), transparent 70%),
+    radial-gradient(ellipse 42% 100% at 65% 110%, color-mix(in srgb, var(--ambient-coral) 66%, transparent), transparent 70%),
+    linear-gradient(110deg, color-mix(in srgb, var(--ambient-mint) 26%, white), color-mix(in srgb, var(--ambient-violet) 18%, white));
+  background-size: 135% 135%;
+  animation: wb-ambient-drift 18s ease-in-out infinite alternate;
+}
+
+.wb-panel-artwork::after {
+  position: absolute;
+  inset: 0;
+  content: '';
+  opacity: 0.35;
+  background-image: radial-gradient(circle, color-mix(in srgb, var(--text-display) 18%, transparent) 0.7px, transparent 0.85px);
+  background-size: 7px 7px;
+  mask-image: linear-gradient(135deg, transparent 0%, black 28%, black 72%, transparent 100%);
+}
+
+.wb-empty-state {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 20px;
+  border: 1px dashed var(--hairline-strong);
+  border-radius: 16px;
+  background: color-mix(in srgb, var(--surface-sunken) 58%, white);
+}
+
+.wb-source-card {
+  border-color: color-mix(in srgb, var(--text-display) 10%, transparent);
+  box-shadow: inset 0 1px 0 color-mix(in srgb, white 70%, transparent);
+}
+.wb-source-card:nth-child(4n + 1) { background: linear-gradient(135deg, color-mix(in srgb, var(--ambient-mint) 66%, white), color-mix(in srgb, var(--ambient-mint) 26%, white)); }
+.wb-source-card:nth-child(4n + 2) { background: linear-gradient(135deg, color-mix(in srgb, var(--ambient-cobalt) 66%, white), color-mix(in srgb, var(--ambient-cobalt) 24%, white)); }
+.wb-source-card:nth-child(4n + 3) { background: linear-gradient(135deg, color-mix(in srgb, var(--ambient-violet) 60%, white), color-mix(in srgb, var(--ambient-violet) 22%, white)); }
+.wb-source-card:nth-child(4n + 4) { background: linear-gradient(135deg, color-mix(in srgb, var(--ambient-coral) 66%, white), color-mix(in srgb, var(--ambient-coral) 24%, white)); }
 
 .wb-display {
   font-family: var(--font-display);
@@ -261,7 +328,9 @@
   .wb-orbit-flow,
   .wb-orbit-active,
   .wb-orbit-node,
-  .wb-ambient {
+  .wb-ambient,
+  .wb-panel-artwork,
+  .wb-page {
     animation: none;
   }
   .wb-orbit-flow { stroke-dasharray: none; }
