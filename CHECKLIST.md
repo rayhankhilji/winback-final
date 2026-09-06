@@ -228,6 +228,11 @@ Did: reran the production build after the workbook route was added. Next compile
 Broke / didn't finish: the local runner again cut the build off after 30 seconds before static-generation completion (Q17); this is not a reported application compile failure. The test suite remains the authoritative completed verification for the new workbook behavior.
 Next agent should know: do not represent a full `next build` completion until the local worker/static-generation behaviour is resolved.
 
+### 2026-09-06 — Collapsible workspace rail
+Did: added a real state-driven compact sidebar mode using the supplied `MenuButton` motion component. It smoothly transitions between the wide workspace rail and an icon rail, keeps accessible labels/tooltips, preserves Add company, and hides dense guide/company navigation only in compact mode.
+Broke / didn't finish: no new duplicate navigation or fake animation was added; company sections remain available in the expanded rail. README simplification remains a documentation follow-up rather than an excuse to retain incorrect product claims.
+Next agent should know: this is UI state only; it does not affect routing, upload, extraction or the persisted-company workflow.
+
 ### 2026-09-06 — Live model fallback distinction
 Did: invoked `parseWithModel` with a valid PNG through the configured live Gemini key. The model accepted the base64 inline-data request and returned a contract-valid parse (`pages: 1`, zero segments for an intentionally blank image) in 2.3s.
 Broke / didn't finish: this disproves a general image-inline-data fault but does not resolve the earlier sparse synthetic-PDF 400 or prove PPTX handling.
