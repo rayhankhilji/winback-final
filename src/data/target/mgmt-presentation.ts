@@ -12,7 +12,7 @@ import type { SourceDoc } from '@/lib/contracts/types';
 
 export const MGMT_PRESENTATION: SourceDoc = {
   id: 'mgmt-pres',
-  kind: 'management_presentation',
+  kind: 'presentation',
   title: 'Project Kestrel — Management Presentation',
   filename: 'kestrel_mgmt_presentation_v1.pdf',
   dateLabel: 'June 2026',

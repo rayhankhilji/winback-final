@@ -30,11 +30,20 @@ export const WorkstreamSchema = z.enum([
   'unknown',
 ]);
 
+/**
+ * Open set of document kinds. Descriptive metadata only — nothing branches on
+ * it. Widened from the four Kestrel-specific literals so an arbitrary uploaded
+ * file has a kind it can legitimately carry.
+ */
 export const DocKindSchema = z.enum([
-  'management_presentation',
-  'customer_contracts',
+  'presentation',
+  'contract',
+  'financial_statement',
   'cap_table',
-  'option_grants',
+  'report',
+  'spreadsheet',
+  'image',
+  'other',
 ]);
 
 export const BlockKindSchema = z.enum([
@@ -46,8 +55,12 @@ export const BlockKindSchema = z.enum([
   'clause', // a numbered contract clause
 ]);
 
-/** Closed union of the four documents in this build. Adding a fifth is a contract change. */
-export const SourceDocIdSchema = z.enum(['mgmt-pres', 'contracts', 'cap-table', 'options']);
+/**
+ * Any non-empty string. Was a closed union of the four Kestrel fixture ids,
+ * which made a user-uploaded file unrepresentable: it could never become a
+ * `SourceDoc`, be extracted, or be cited. The four fixture ids remain valid.
+ */
+export const SourceDocIdSchema = z.string().min(1);
 
 /**
  * One addressable unit of a source document. THE atom of traceability.
@@ -77,6 +90,14 @@ export const SourceDocSchema = z.object({
   pages: z.number(),
   pageNoun: z.enum(['slide', 'page', 'row', 'grant']), // how the UI labels a page ref
   blocks: z.array(BlockSchema),
+
+  // Populated for uploaded documents from Stage 3 onward. Optional so the
+  // hand-authored fixtures in src/data/target/ stay valid without carrying
+  // storage or tenancy fields they have no meaning for.
+  companyId: z.string().uuid().optional(),
+  storagePath: z.string().optional(), // {orgId}/{companyId}/{filename}
+  mimeType: z.string().optional(),
+  ingestedAt: IsoSchema.optional(),
 });
 
 /** A pointer from any generated statement back to the document it came from. */

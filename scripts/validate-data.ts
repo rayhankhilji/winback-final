@@ -9,7 +9,10 @@
 import { TARGET_DOCS, TARGET_COMPANY_IDENTITY } from '../src/data/target';
 import type { SourceDoc } from '../src/lib/contracts/types';
 
-const ID_PATTERN: Record<SourceDoc['id'], RegExp> = {
+// Keyed by fixture doc id. `SourceDoc['id']` is now any non-empty string, so a
+// doc without a registered pattern simply skips assertion 1 rather than
+// crashing — uploaded documents namespace their block ids at ingestion instead.
+const ID_PATTERN: Record<string, RegExp | undefined> = {
   'mgmt-pres': /^s\d+-b\d+$/,
   contracts: /^c\d+-(h|cl\d+)$/,
   'cap-table': /^(row-\d+|hdr|total|note-\d+)$/,
@@ -34,7 +37,7 @@ for (const doc of TARGET_DOCS) {
     // 1. Every block id unique within its doc; matches its doc's id pattern.
     if (seenIds.has(block.id)) fail(`[${doc.id}] duplicate block id '${block.id}'`);
     seenIds.add(block.id);
-    if (!pattern.test(block.id)) {
+    if (pattern && !pattern.test(block.id)) {
       fail(`[${doc.id}] block id '${block.id}' doesn't match pattern ${pattern}`);
     }
 

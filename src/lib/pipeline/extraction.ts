@@ -272,7 +272,7 @@ const extractionResponseSchema: Schema = {
 // e.g. the contracts document doesn't guess at financials.
 // ----------------------------------------------------------------------------
 
-const DOC_RESPONSIBILITY: Record<SourceDocId, string> = {
+const DOC_RESPONSIBILITY: Record<string, string | undefined> = {
   'mgmt-pres':
     'company identity (name, sector, hq, foundedYear, employees, a 2-3 sentence businessSummary), the ' +
     'financials table (financials[]), the stated revenue mix (revenueMix[]), and any other notable facts ' +
@@ -289,6 +289,17 @@ const DOC_RESPONSIBILITY: Record<SourceDocId, string> = {
     'null or empty.',
 };
 
+/**
+ * Default branch for any document id not in the fixture set — i.e. every
+ * uploaded document. Without this the prompt interpolated `undefined` into the
+ * responsibility line and shipped it to the model.
+ */
+const DEFAULT_DOC_RESPONSIBILITY =
+  'every field this document genuinely supports, and no others. Read what the document is before ' +
+  'deciding: fill in company identity and financials only if it states them, contracts only if it ' +
+  'contains them, capTable and optionGrants only if it presents equity data. Leave every field this ' +
+  'document does not cover null or empty rather than inferring it.';
+
 function buildExtractionPrompt(doc: SourceDoc): { systemInstruction: string; prompt: string } {
   const systemInstruction =
     'You are a diligence analyst extracting structured facts from one source document as part of an ' +
@@ -299,7 +310,7 @@ function buildExtractionPrompt(doc: SourceDoc): { systemInstruction: string; pro
 
   const prompt = [
     `Document: ${doc.title} (${doc.kind}).`,
-    `Your responsibility in this call: ${DOC_RESPONSIBILITY[doc.id]}`,
+    `Your responsibility in this call: ${DOC_RESPONSIBILITY[doc.id] ?? DEFAULT_DOC_RESPONSIBILITY}`,
     '',
     'Document text, with each block preceded by its bracketed id:',
     renderDocForPrompt(doc),

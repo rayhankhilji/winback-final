@@ -72,7 +72,7 @@ function block(id: string, kind: BlockKind, page: number, text: string, section?
 
 const MGMT_PRES: SourceDoc = {
   id: 'mgmt-pres',
-  kind: 'management_presentation',
+  kind: 'presentation',
   title: 'Project Meridian — Management Presentation',
   filename: 'meridian_mgmt_presentation_v3.pdf',
   dateLabel: 'March 2026',
@@ -126,7 +126,7 @@ const MGMT_PRES: SourceDoc = {
 
 const CONTRACTS: SourceDoc = {
   id: 'contracts',
-  kind: 'customer_contracts',
+  kind: 'contract',
   title: 'Project Meridian — Customer Contracts',
   filename: 'meridian_customer_contracts_bundle.pdf',
   dateLabel: 'February 2026',
@@ -170,7 +170,7 @@ const CAP_TABLE: SourceDoc = {
 
 const OPTIONS: SourceDoc = {
   id: 'options',
-  kind: 'option_grants',
+  kind: 'cap_table',
   title: 'Project Meridian — Option Grant Register',
   filename: 'meridian_option_grant_register.xlsx',
   dateLabel: 'December 2024',
@@ -421,10 +421,10 @@ const PROFILE: CompanyProfile = {
 
 const EXTRACTION: ExtractionResult = {
   classifications: [
-    { docId: 'mgmt-pres', workstream: 'financial', docKind: 'management_presentation', confidence: 0.96, rationale: 'Contains headline financials, revenue quality narrative, and capitalization summary.', fieldsExtracted: 9 },
-    { docId: 'contracts', workstream: 'commercial', docKind: 'customer_contracts', confidence: 0.94, rationale: 'Six customer agreements with term, renewal, and termination language.', fieldsExtracted: 6 },
+    { docId: 'mgmt-pres', workstream: 'financial', docKind: 'presentation', confidence: 0.96, rationale: 'Contains headline financials, revenue quality narrative, and capitalization summary.', fieldsExtracted: 9 },
+    { docId: 'contracts', workstream: 'commercial', docKind: 'contract', confidence: 0.94, rationale: 'Six customer agreements with term, renewal, and termination language.', fieldsExtracted: 6 },
     { docId: 'cap-table', workstream: 'financial', docKind: 'cap_table', confidence: 0.98, rationale: 'Fully diluted ownership table with a completeness footnote.', fieldsExtracted: 6 },
-    { docId: 'options', workstream: 'financial', docKind: 'option_grants', confidence: 0.97, rationale: 'Twelve board-approved option grants spanning 2019–2024.', fieldsExtracted: 12 },
+    { docId: 'options', workstream: 'financial', docKind: 'cap_table', confidence: 0.97, rationale: 'Twelve board-approved option grants spanning 2019–2024.', fieldsExtracted: 12 },
   ],
   profile: PROFILE,
   failures: [],

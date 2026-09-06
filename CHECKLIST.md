@@ -29,11 +29,13 @@ stage you are on, what the last agent assumed, what they deviated from, and what
 
 ## Current state
 
-**Stage:** 1 — Open the document contract
+**Stage:** 2 — Database
 **Status:** not started
-**Last session:** 2026-09-06 — Setup (clone, docs install, baseline verify, push). No feature code written.
-**Next action:** widen `SourceDocIdSchema` and `DocKindSchema` in `src/lib/contracts/schemas.ts`
-**Blocked by:** nothing
+**Last session:** 2026-09-06 — Stage 1 landed. Contract is open; fixture path verified green.
+**Next action:** migration `0004` — `documents`, `document_blocks`, `runs`, with RLS. See
+`docs/DATA_MODEL.md`.
+**Blocked by:** nothing in code. Real Supabase credentials are still missing, so nothing can be
+exercised through the browser — see Q6.
 
 ---
 
@@ -43,7 +45,7 @@ Full definitions in `docs/BUILD_PLAN.md`. Mark `[x]` done, `[~]` partial, `[ ]` 
 
 - [x] **0 — Baseline.** Pipeline, contracts, evidence drawer, Supabase auth, orgs, invites,
       onboarding, knowledge graph, five screens. Verified at commit `6a903ba`. Do not rebuild.
-- [ ] **1 — Open the document contract.** Keystone. Nothing works until this lands.
+- [x] **1 — Open the document contract.** Keystone. Nothing works until this lands. Landed 2026-09-06.
 - [ ] **2 — Database.** Migration `0004`: documents, document_blocks, runs, RLS.
 - [ ] **3 — Parsers.** pdf-parse, mammoth, xlsx, Gemini fallback, block persistence.
 - [ ] **4 — Ingest API + background job.** `/api/ingest`, `/api/runs/[id]`, failure matrix.
@@ -67,6 +69,8 @@ and say so.
 | A3 | Parsing a large PDF plus parallel Gemini calls exceeds `maxDuration = 60`, which is why ingestion is a background job. | Stage 0 review | high | No |
 | A4 | `RUN_BUDGET_MAX = 500` is too low once documents are real rather than four fixtures. | Stage 0 review | medium | No |
 | A5 | Storing `ExtractionResult` and friends as validated `jsonb` is correct; normalising them into relational tables buys nothing. | Data model | high | n/a — judgement |
+| A8 | Remapping the four fixture `kind` values is behaviourally inert. Verified: nothing in `src/` switches on `docKind` — no switch statement, no `Record<DocKind, …>`, no UI label map. It is passed through `extraction.ts:341` into `DocClassification` and displayed as a string. | Stage 1 | high | Yes — grepped, and the full fixture pipeline reruns identically. |
+| A9 | `option_grants` maps to `cap_table` in the new vocabulary. Guessed. Both are equity documents and the new enum has no grant-schedule literal; `report`/`spreadsheet`/`other` all fit worse. Consequence: `cap-table` and `options` now report the same `docKind`. Nothing reads it, so nothing breaks, but the classification display is less specific than it was. | Stage 1 | medium — **guessed** | No — revisit if a screen ever surfaces `docKind` to the user. |
 | A7 | The `/onboarding` prerender crash on a bare `pnpm build` is purely missing Supabase env, not inherited breakage — it disappeared entirely once placeholder values were present. | Setup | high | Partly — build goes green with placeholders; not retested with real keys. |
 | A6 | Gemini vision handles PPTX and screenshots well enough to produce usable blocks, since no good Node PPTX parser is worth the time. | Ingestion design | medium | No |
 
@@ -85,6 +89,9 @@ Deviations from the written docs, and why. Empty is fine at the start.
 
 | R5 | `SETUP.md` verifies the baseline with a bare `pnpm install` | Used `corepack pnpm` throughout | `package.json` pins `pnpm@11.22.0`; the machine's global pnpm is 9.15.9, which rejects this repo's `pnpm-workspace.yaml` (no `packages:` key) with "packages field missing or empty". `corepack pnpm` runs the pinned 11.22.0 and installs clean. |
 
+| R6 | `INGESTION.md` step 0 says the fixtures "survive unchanged" while prescribing an enum that drops three of their four `kind` values (`management_presentation`, `customer_contracts`, `option_grants`) | Implemented the prescribed eight-value enum and remapped the four fixture kinds | The doc contradicts itself; something had to give. Kept the docs' vocabulary rather than a superset enum carrying both old and new literals, because a superset means two ways to say "presentation" and violates *one way to do a thing*. The remap is 6 lines across 4 files and provably inert (A8). **`docs/INGESTION.md` is factually wrong on this point and should be corrected to say the fixture kinds are remapped.** |
+| R7 | `INGESTION.md` types `ingestedAt` as `z.string().datetime()` and the four new `SourceDoc` fields as required | Used `IsoSchema` and made all four `.optional()` | Optional per the Stage 1 prompt, so the hand-authored fixtures stay valid without carrying storage or tenancy fields. `IsoSchema` is what every other timestamp in `schemas.ts` uses — introducing a second timestamp type here would be a new pattern for a solved problem. Stage 3 populates the fields. |
+
 ---
 
 ## Open questions
@@ -98,6 +105,8 @@ Things nobody has resolved. Add to this rather than guessing silently.
 | Q3 | When a company is re-analysed, do old runs stay queryable or does `latest_run_id` make them dead weight? | Stage 7 | Stage 0 |
 | Q4 | Which repo is canonical once the team is awake — do we merge our branches into upstream, or does upstream merge from us? | Nothing today; matters before the demo | Setup |
 | ~~Q5~~ | ~~Does the open PR on upstream touch `src/lib/contracts/`? If so it collides with Stage 1.~~ **Answered in Setup: upstream PR #3 (`feature/phase-5-ship`, 36 files) touches no file under `src/lib/contracts/`. No collision with Stage 1.** | Stage 1 | Setup |
+| Q7 | `mergeSlices` in `extraction.ts:407` reads `byDoc['mgmt-pres']`, `byDoc.contracts`, `byDoc['cap-table']`, `byDoc.options` by literal. An uploaded document's extracted slice is silently dropped — it contributes nothing to the merged `CompanyProfile`. Left alone deliberately: fixing it means designing how N arbitrary documents merge into one profile, which is Stage 3/4 work, not a contract change. | Stage 3 — uploaded documents produce nothing until this is solved | Stage 1 |
+| Q8 | `quantify.ts:68,72` filters counter-evidence on `e.docId === 'options'`, and both crosscheck prompt packs (`recurring-revenue.ts:24`, `option-dilution.ts:21`) declare hardcoded fixture `docIds`. The crosscheck layer is still Kestrel-shaped even though the contract is now open. | Stage 4 — crosschecks firing on arbitrary uploads (this is A1, the assumption the whole project rests on) | Stage 1 |
 | Q6 | Which Supabase project do we point at? The build needs real `NEXT_PUBLIC_SUPABASE_URL` / `ANON_KEY` / `SERVICE_ROLE_KEY` before any page past `/sign-in` can be opened, including the fixture demo. | Verifying the fixture path; Vercel deploy | Setup |
 
 ---
@@ -130,6 +139,30 @@ Did:
 Broke / didn't finish: 
 Next agent should know: 
 ```
+
+### 2026-09-06 — Stage 1
+Did: opened the document contract. `SourceDocIdSchema` is now `z.string().min(1)` (was a four-literal
+enum); `DocKindSchema` is the eight-value open set from `INGESTION.md` step 0; `SourceDocSchema`
+gained optional `companyId`, `storagePath`, `mimeType`, `ingestedAt`. `BlockSchema` untouched.
+Remapped the four fixture kinds — `management_presentation`→`presentation`,
+`customer_contracts`→`contract`, `option_grants`→`cap_table`, `cap_table` unchanged — across
+`src/data/target/`, `src/lib/fixtures/mockRun.ts` and `evidence.test.ts` (see R6, A9). Added two
+default branches: `DOC_RESPONSIBILITY` in `extraction.ts` was interpolating a literal `undefined`
+into the model prompt for any non-fixture doc id, now falls back to `DEFAULT_DOC_RESPONSIBILITY`;
+`ID_PATTERN` in `scripts/validate-data.ts` now skips assertion 1 for docs with no registered pattern
+instead of crashing on it. No switch statement on `docKind` exists anywhere in `src/` — grepped.
+Verified: `typecheck`, `test` (51/51), `build`, `validate:data` all green. Ran the full fixture
+pipeline directly under `MOCK_LLM=1` — 4/4 docs extract, 0 failures, 0 dropped evidence refs, both
+planted contradictions still fire at `severityHint=high`, 5/5 evidence chips resolve to a real block
+and quote-verify.
+Broke / didn't finish: nothing in scope. The browser click-through is still unverified — auth gates
+every route and the Supabase credentials are placeholders (Q6), so the pipeline was verified by
+direct invocation instead. Two fixture-shaped assumptions survive the widening and are now logged as
+Q7 (`mergeSlices` drops uploaded docs' slices) and Q8 (crosschecks still hardcode fixture doc ids) —
+both deliberately out of Stage 1 scope.
+Next agent should know: Stage 2 is clear to start. The contract no longer blocks anything, but an
+uploaded document still dead-ends at `mergeSlices` — Q7 is the next real obstacle after persistence,
+and Q8 is the one that decides whether A1 holds.
 
 ### 2026-09-06 — Setup
 Did: cloned `rochak779/Winback-1` with full history (48 commits) into `winback/`, renamed its remote

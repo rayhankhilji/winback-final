@@ -16,7 +16,7 @@ import type { SourceDoc } from '@/lib/contracts/types';
 
 export const CUSTOMER_CONTRACTS: SourceDoc = {
   id: 'contracts',
-  kind: 'customer_contracts',
+  kind: 'contract',
   title: 'Project Kestrel — Customer Contracts',
   filename: 'kestrel_customer_contracts_bundle.pdf',
   dateLabel: 'May 2026',

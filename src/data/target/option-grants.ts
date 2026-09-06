@@ -14,7 +14,7 @@ import type { SourceDoc } from '@/lib/contracts/types';
 
 export const OPTION_GRANTS: SourceDoc = {
   id: 'options',
-  kind: 'option_grants',
+  kind: 'cap_table',
   title: 'Project Kestrel — Option Grant Register',
   filename: 'kestrel_option_grant_register.xlsx',
   dateLabel: 'May 2026',

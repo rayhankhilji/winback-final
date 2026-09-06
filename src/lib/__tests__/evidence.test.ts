@@ -12,7 +12,7 @@ import type { EvidenceRef, SourceDoc } from '@/lib/contracts/types';
 const DOCS: SourceDoc[] = [
   {
     id: 'mgmt-pres',
-    kind: 'management_presentation',
+    kind: 'presentation',
     title: 'Test Deck',
     filename: 'test.pdf',
     dateLabel: 'June 2026',
