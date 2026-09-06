@@ -29,14 +29,15 @@ stage you are on, what the last agent assumed, what they deviated from, and what
 
 ## Current state
 
-**Stage:** 3 — Parsers
-**Status:** not started. Stage 2 is written but unverified — read Q9 before treating it as done.
-**Last session:** 2026-09-06 — Stage 2. Migration `0004` and the RLS proof test written; neither has
-ever touched a database.
-**Next action:** either apply `0004` against a real Supabase project and run the RLS test (Q6/Q9), or
-start Stage 3 parsers on the understanding that the schema underneath them is unexecuted SQL.
-**Blocked by:** nothing in code. No database of any kind is reachable from this machine — no
-credentials (Q6) and no local Postgres (Q9).
+**Stage:** 4 — Ingest API and background job
+**Status:** not started. Stages 2 and 3 both have an unrun database half — read Q9 first.
+**Last session:** 2026-09-06 — Stage 3. Parsers land and are proven on real PDF/DOCX/XLSX bytes;
+`persistDocument`/`loadDocument` are written but have never touched Postgres.
+**Next action:** `POST /api/ingest` and `GET /api/runs/[id]` per `docs/API.md`, plus the failure
+matrix in `INGESTION.md` steps 3-4. **Stage 4 also carries the project's real risk — verify there
+whether the crosscheck prompts fire on non-Kestrel documents (A1/Q8).**
+**Blocked by:** nothing in code. Still no database reachable from this machine (Q6/Q9), so anything
+touching Postgres is written-but-unproven.
 
 ---
 
@@ -50,7 +51,8 @@ Full definitions in `docs/BUILD_PLAN.md`. Mark `[x]` done, `[~]` partial, `[ ]` 
 - [~] **2 — Database.** Migration `0004`: documents, document_blocks, runs, RLS. Written and
       reviewed; **not applied and not executed** — no Postgres on this machine (no Docker, no local
       server). The RLS proof test is written and skips itself until a database exists. See Q9.
-- [ ] **3 — Parsers.** pdf-parse, mammoth, xlsx, Gemini fallback, block persistence.
+- [~] **3 — Parsers.** pdf-parse, mammoth, xlsx, Gemini fallback, block persistence. Parsers done and
+      proven on real files; the persistence half is written but unrun for want of a database (Q9).
 - [ ] **4 — Ingest API + background job.** `/api/ingest`, `/api/runs/[id]`, failure matrix.
 - [ ] **5 — Upload and Processing screens.**
 - [ ] **6 — Dashboard and portfolio list.**
@@ -72,6 +74,9 @@ and say so.
 | A3 | Parsing a large PDF plus parallel Gemini calls exceeds `maxDuration = 60`, which is why ingestion is a background job. | Stage 0 review | high | No |
 | A4 | `RUN_BUDGET_MAX = 500` is too low once documents are real rather than four fixtures. | Stage 0 review | medium | No |
 | A5 | Storing `ExtractionResult` and friends as validated `jsonb` is correct; normalising them into relational tables buys nothing. | Data model | high | n/a — judgement |
+| A12 | The block-id scheme `{documentId}-p{page}-b{n}`, with n restarting per page, is stable across re-parses of the same bytes. Verified by test for determinism, but it is only stable if the parser is: a pdf-parse upgrade that changes paragraph splitting would renumber every block after the change and break existing citations. | Stage 3 | medium | Partly — determinism tested, version-stability not. **Pin the parser versions before any citation is stored for real.** |
+| A13 | Gemini vision produces usable blocks for PPTX and images (this is A6, now load-bearing). The fallback path is written and typechecks but has never run — it needs a real `GEMINI_API_KEY`, and there is no golden fixture for `parse:*` so `MOCK_LLM=1` cannot exercise it either. | Stage 3 | medium — **unverified** | **No. The entire PPTX and image path is unexecuted code.** |
+| A14 | Losing the classify call should degrade, not fail. A document that parsed correctly is kept with a filename-derived title and a MIME-derived kind rather than discarded. This is a deliberate exception to "no fallbacks just in case" — classification is a convenience, not a precondition, and the caller is told via `classified: false`. | Stage 3 | high | n/a — judgement |
 | A10 | Migration `0004` is syntactically valid Postgres and applies cleanly on top of `0003`. **Reviewed by eye only — never executed.** No Docker, no local Postgres, no reachable Supabase project, so `supabase db lint` and `supabase start` were both unavailable. | Stage 2 | medium — **unverified** | **No. This is the weakest claim in the build. Apply it before building anything on top of it.** |
 | A11 | `companies.latest_run_id` is deliberately not a foreign key to `runs`. The reference is circular — a run points at its company — and a FK would force an insert-ordering dance on every new run for no integrity gain. | Stage 2 | high | n/a — judgement |
 | A8 | Remapping the four fixture `kind` values is behaviourally inert. Verified: nothing in `src/` switches on `docKind` — no switch statement, no `Record<DocKind, …>`, no UI label map. It is passed through `extraction.ts:341` into `DocClassification` and displayed as a string. | Stage 1 | high | Yes — grepped, and the full fixture pipeline reruns identically. |
@@ -100,6 +105,10 @@ Deviations from the written docs, and why. Empty is fine at the start.
 | R8 | `DATA_MODEL.md` specifies the three tables and their indexes but no RPC for blocks | Also added `insert_document_blocks(uuid, jsonb)` | The same doc's conventions say "multi-row creates go through an RPC so they are atomic", and blocks are the multi-row create — a half-written document is one whose citations dangle. `SECURITY INVOKER`, so the RLS policies still apply; it exists for atomicity, not to escape authorisation. It takes a serialised `Block[]` in the contract's own field names and derives `ordinal` from array position, so parse order cannot silently disagree with stored order. |
 | R9 | `DATA_MODEL.md` gives `runs` an `updated_at` with `default now()` and no trigger | Added a `set_updated_at()` trigger | A default only fires on insert. `runs` is the first mutable row in this schema and the processing screen polls `updated_at`; without a trigger it would be frozen at creation time and every poll would look stale. First trigger in the schema, `search_path` pinned like every other function. |
 
+| R10 | `INGESTION.md` step 1 lists the parser dependencies only | Also added `jszip` as a **devDependency** | Test fixtures are real PDF, DOCX and XLSX bytes generated in memory rather than binary blobs committed to the repo. A DOCX is a zip and there was no zip writer in the tree that was not a transitive dependency of mammoth; depending on another package's transitive dep silently is worse than declaring it. Test-only — nothing in `src/` imports it. |
+| R11 | Nothing in the docs says the Gemini surface takes file bytes | Extended `generateJson` with an optional `files` parameter | The fallback parser has to send PPTX and image bytes to Gemini, and `CLAUDE.md` forbids any file but `gemini.ts` importing `@google/genai`. Adding the parameter there was the only option that respects the rule. Text-only calls are byte-identical to before: the prompt string is still passed straight through when `files` is absent. |
+| R12 | `INGESTION.md` step 1 says mammoth converts to HTML and to split on headings, paragraphs and list items | Added a mammoth `styleMap` for Word's "List Paragraph" style | Without it mammoth only emits `<li>` when `numbering.xml` defines the list, so real Word bullets arrive as prose and lose the structure that makes them individually citable. Found because the DOCX fixture test failed, not by reading ahead. |
+
 ---
 
 ## Open questions
@@ -113,6 +122,8 @@ Things nobody has resolved. Add to this rather than guessing silently.
 | Q3 | When a company is re-analysed, do old runs stay queryable or does `latest_run_id` make them dead weight? | Stage 7 | Stage 0 |
 | Q4 | Which repo is canonical once the team is awake — do we merge our branches into upstream, or does upstream merge from us? | Nothing today; matters before the demo | Setup |
 | ~~Q5~~ | ~~Does the open PR on upstream touch `src/lib/contracts/`? If so it collides with Stage 1.~~ **Answered in Setup: upstream PR #3 (`feature/phase-5-ship`, 36 files) touches no file under `src/lib/contracts/`. No collision with Stage 1.** | Stage 1 | Setup |
+| Q11 | Nothing in Stage 3 wrote a row. `persistDocument`, `loadDocument` and the `--dry-run`-less half of `scripts/ingest-file.ts` are unexecuted for the same reason as Q9. Stage 3's "done when" is "write correct, ordered, addressable blocks **to the database**" — the parse half is proven on real files, the write half is not. | Stage 4 stores pipeline results in the same tables | Stage 3 |
+| Q12 | Should the parser dependency versions be pinned exactly? Block ids are permanent, and a minor `pdf-parse` release that changes paragraph splitting would renumber blocks and dangle every stored citation (A12). Currently caret ranges. | Any real stored citation | Stage 3 |
 | Q9 | Migration `0004` has never been executed. There is no Postgres on this machine — no Docker for `supabase start`, no local server, no reachable project — so the SQL is reviewed but unrun, and Stage 2's "done when" (org A cannot read org B's rows, **proven by a test**) is unproven. The test exists at `src/lib/__tests__/rls.integration.test.ts` and skips itself with a visible marker rather than passing vacuously. | Everything from Stage 3 on rests on this schema | Stage 2 |
 | Q10 | `BlockSchema` carries a `deprecated?: boolean` — the documented way to retire a block after Hour 6 without breaking a citation — but `DATA_MODEL.md` gives `document_blocks` no column for it. A deprecated block cannot currently be persisted as deprecated. Either the column is missing from the data model or the field is dead in the contract. | Stage 8 — document viewer | Stage 2 |
 | Q7 | `mergeSlices` in `extraction.ts:407` reads `byDoc['mgmt-pres']`, `byDoc.contracts`, `byDoc['cap-table']`, `byDoc.options` by literal. An uploaded document's extracted slice is silently dropped — it contributes nothing to the merged `CompanyProfile`. Left alone deliberately: fixing it means designing how N arbitrary documents merge into one profile, which is Stage 3/4 work, not a contract change. | Stage 3 — uploaded documents produce nothing until this is solved | Stage 1 |
@@ -149,6 +160,32 @@ Did:
 Broke / didn't finish: 
 Next agent should know: 
 ```
+
+### 2026-09-06 — Stage 3
+Did: added `pdf-parse`, `mammoth`, `xlsx` and built `src/lib/ingestion/` — `blocks.ts` (the single
+place block ids are minted, `{documentId}-p{page}-b{n}`, n per page, with sentence-boundary splitting
+at 1,200 chars so quote verification's substring check still holds), `pdf.ts`, `docx.ts`, `sheet.ts`,
+`model-parse.ts` (the Gemini fallback for PPTX, images and scanned PDFs), `classify.ts`, `index.ts`
+(the router) and `persist.ts`. Extended `generateJson` with an optional `files` parameter so the
+fallback parser can send bytes without any file but `gemini.ts` importing `@google/genai` (R11).
+Wrote `scripts/ingest-file.ts` (`pnpm ingest:file`, with `--dry-run`) and 26 parser tests against
+real generated PDF/DOCX/XLSX bytes rather than mocks.
+Proven: all three formats parse from disk into ordered, addressable, correctly-paged blocks — the
+3-page PDF gives 11 blocks with headings, a kv and section labels carried down; the DOCX gives
+heading/paragraph/bullet/table with columns and rows intact; the XLSX gives one page per sheet, two
+table regions split on a blank row, and the sheet name as a citable heading. Ids unique, pages
+non-decreasing, verified by the script itself. `typecheck`, `lint`, `test` (74 passed / 7 skipped),
+`build`, `validate:data` all green, and the `MOCK_LLM=1` fixture pipeline still runs identically —
+4/4 docs, 0 dropped refs, both contradictions firing, 5/5 chips verified.
+Broke / didn't finish: **the persistence half never ran** (Q11) — same missing database as Q9. And
+the **Gemini fallback path is entirely unexecuted** (A13): it needs a real `GEMINI_API_KEY`, and
+there is no `parse:*` golden fixture so `MOCK_LLM=1` cannot reach it either. PPTX and image ingestion
+should be treated as unwritten until someone runs it once.
+Next agent should know: two failing tests during this stage were the code being right, not the test —
+the PDF vision-fallback threshold correctly rejected a too-sparse fixture, and mammoth genuinely does
+not emit `<li>` for Word's List Paragraph style without a styleMap (R12). Both were fixed at the
+cause. Also read Q12 before storing any real citation: block ids are permanent, and the parser
+versions that mint them are on caret ranges.
 
 ### 2026-09-06 — Stage 2
 Did: wrote `supabase/migrations/0004_ingestion_and_runs.sql` — `sector` and `latest_run_id` on

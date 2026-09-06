@@ -89,6 +89,13 @@ export interface GenerateJsonOpts<T> {
    * that only rely on Gemini's own responseSchema can skip it.
    */
   zodSchema?: z.ZodType<T>;
+  /**
+   * Raw file bytes to send alongside the prompt, for the ingestion fallback
+   * parser (PPTX, images, PDFs with no text layer). Kept here rather than in
+   * the ingestion modules because no other file may import `@google/genai`.
+   * Omit for every text-only call, which is all of the analysis pipeline.
+   */
+  files?: Array<{ mimeType: string; data: Uint8Array }>;
 }
 
 export interface GenerateJsonResult<T> {
@@ -108,6 +115,7 @@ export async function generateJson<T>(opts: GenerateJsonOpts<T>): Promise<Genera
     temperature = 0,
     timeoutMs = 45_000,
     zodSchema,
+    files,
   } = opts;
 
   const started = Date.now();
@@ -119,13 +127,30 @@ export async function generateJson<T>(opts: GenerateJsonOpts<T>): Promise<Genera
 
   const modelId = model === 'reasoning' ? REASONING_MODEL : FAST_MODEL;
 
+  // A text-only call passes the prompt string straight through, exactly as
+  // before. A call with files becomes a single multi-part user turn.
+  function buildContents(promptText: string) {
+    if (!files || files.length === 0) return promptText;
+    return [
+      {
+        role: 'user' as const,
+        parts: [
+          ...files.map((f) => ({
+            inlineData: { mimeType: f.mimeType, data: Buffer.from(f.data).toString('base64') },
+          })),
+          { text: promptText },
+        ],
+      },
+    ];
+  }
+
   async function callOnce(promptText: string): Promise<unknown> {
     const ai = getClient();
     let response;
     try {
       response = await ai.models.generateContent({
         model: modelId,
-        contents: promptText,
+        contents: buildContents(promptText),
         config: {
           systemInstruction,
           temperature,
