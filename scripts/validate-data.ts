@@ -7,7 +7,6 @@
 // ============================================================================
 
 import { TARGET_DOCS, TARGET_COMPANY_IDENTITY } from '../src/data/target';
-import type { SourceDoc } from '../src/lib/contracts/types';
 
 // Keyed by fixture doc id. `SourceDoc['id']` is now any non-empty string, so a
 // doc without a registered pattern simply skips assertion 1 rather than
