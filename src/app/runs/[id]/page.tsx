@@ -124,8 +124,10 @@ export default function RunPage({ params }: { params: Promise<{ id: string }> })
   const settled = progress.documents.filter((d) => d.status === 'parsed' || d.status === 'failed').length;
 
   return (
-    <div style={{ maxWidth: 720 }}>
-      <h1 style={{ margin: 0, fontSize: 22, fontWeight: 500, color: 'var(--text-display)' }}>
+    <div className="wb-ambient relative isolate overflow-hidden rounded-[28px] p-5 sm:p-8" style={{ maxWidth: 760 }}>
+      <div className="wb-dither pointer-events-none absolute inset-0 opacity-35" />
+      <div className="relative">
+      <h1 className="wb-display" style={{ margin: 0, fontSize: 34, color: 'var(--text-display)' }}>
         {complete ? 'Analysis complete' : failed ? 'Analysis stopped' : 'Reading your documents'}
       </h1>
       <p style={{ margin: '8px 0 26px', fontSize: 14, color: 'var(--text-secondary)' }}>
@@ -136,12 +138,12 @@ export default function RunPage({ params }: { params: Promise<{ id: string }> })
             : 'This usually takes a minute or two. You can leave this page open.'}
       </p>
 
-      <div
+      <div className="wb-soft-card"
         style={{
           padding: '28px 24px',
           borderRadius: 12,
           border: '1px solid var(--hairline)',
-          background: 'var(--surface-card)',
+          background: 'color-mix(in srgb, var(--surface-card) 92%, transparent)',
         }}
       >
         {complete ? (
@@ -242,6 +244,7 @@ export default function RunPage({ params }: { params: Promise<{ id: string }> })
           })}
         </ul>
       )}
+      </div>
     </div>
   );
 }

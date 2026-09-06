@@ -48,6 +48,12 @@ export interface IngestJobInput {
   documents: Array<{ id: string; storagePath: string; filename: string; mimeType: string }>;
 }
 
+export interface ReanalysisJobInput {
+  db: SupabaseClient;
+  runId: string;
+  companyId: string;
+}
+
 interface ParseTally {
   parsed: number;
   failed: number;
@@ -175,6 +181,36 @@ export async function runIngestion(input: IngestJobInput): Promise<void> {
         : err instanceof Error
           ? err.message.slice(0, 500)
           : 'The run failed unexpectedly.';
+    await failRun(db, runId, message);
+  }
+}
+
+/** Re-run model stages over blocks already persisted for a company. This never
+ * downloads or parses the original files again. */
+export async function runReanalysis(input: ReanalysisJobInput): Promise<void> {
+  const { db, runId, companyId } = input;
+  const budget = runBudgetMax();
+  try {
+    const docs = await loadCompanyDocuments(db, companyId);
+    if (docs.length === 0) {
+      await failRun(db, runId, 'No parsed documents are available to re-analyse.');
+      return;
+    }
+    await setStage(db, runId, 'parse', `Reusing ${docs.length} parsed document${docs.length === 1 ? '' : 's'}`);
+    const used = await addLlmCalls(db, runId, docs.length);
+    if (used > budget) throw new RunBudgetExceededError(used, budget);
+    await setStage(db, runId, 'extract', `Extracting facts from ${docs.length} document${docs.length === 1 ? '' : 's'}`);
+    const extraction = await runExtraction(docs, docs);
+    await setStage(db, runId, 'analyse', 'Benchmarking against comparable companies');
+    await setStage(db, runId, 'crosscheck', 'Cross-checking claims against source documents');
+    const afterCrosscheck = await addLlmCalls(db, runId, 2);
+    if (afterCrosscheck > budget) throw new RunBudgetExceededError(afterCrosscheck, budget);
+    const decision = await runDecision(docs.map((doc) => doc.id), extraction.profile, docs);
+    await completeRun(db, runId, companyId, { extraction, decision });
+  } catch (err) {
+    const message = err instanceof RunBudgetExceededError
+      ? 'This run reached its model-call limit and was stopped.'
+      : err instanceof Error ? err.message.slice(0, 500) : 'The run failed unexpectedly.';
     await failRun(db, runId, message);
   }
 }

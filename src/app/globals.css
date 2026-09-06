@@ -94,6 +94,9 @@
   --sidebar-ring: hsl(222.2 84% 4.9%);
 
   --font-sans: var(--font-geist-sans);
+  /* One modern sans system across the workspace. Its optical sizing is
+     markedly clearer than a generic system stack at dashboard scale. */
+  --font-display: var(--font-geist-sans);
 
   --evidence: hsl(210 40% 96.1%);
   --evidence-foreground: hsl(215.4 16.3% 46.9%);
@@ -111,7 +114,7 @@
      are added so components can follow the rule that colour comes from a
      token and never from a hex literal. Each one means exactly one thing. */
 
-  --surface-canvas: #F6F5F1;
+  --surface-canvas: #F7F7F5;
   --surface-card: #FFFFFF;
   --surface-sunken: #F2F0E9;
   --surface-deep: #ECE9DF;
@@ -149,6 +152,47 @@
   --failed-text: #B3402A;
 
   --ease-standard: cubic-bezier(0.2, 0, 0, 1);
+}
+
+/* Ambient colour is contained in artwork and onboarding moments, not used as
+   a substitute for hierarchy. It is intentionally tokenised here so no
+   component has to introduce a private palette. */
+.wb-ambient {
+  background:
+    radial-gradient(ellipse 58% 90% at 8% 106%, color-mix(in srgb, var(--interactive) 62%, transparent), transparent 68%),
+    radial-gradient(ellipse 48% 80% at 88% 14%, color-mix(in srgb, var(--ai) 63%, transparent), transparent 68%),
+    radial-gradient(ellipse 52% 76% at 56% 82%, color-mix(in srgb, var(--positive) 58%, transparent), transparent 70%),
+    linear-gradient(132deg, var(--surface-card), var(--interactive-wash) 42%, var(--ai-wash));
+  background-size: 135% 135%;
+  animation: wb-ambient-drift 18s ease-in-out infinite alternate;
+}
+
+@keyframes wb-ambient-drift {
+  from { background-position: 0% 35%; }
+  to { background-position: 100% 68%; }
+}
+
+.wb-dither {
+  background-image: radial-gradient(circle, color-mix(in srgb, var(--text-display) 22%, transparent) 0.7px, transparent 0.85px);
+  background-size: 7px 7px;
+  mask-image: linear-gradient(135deg, transparent 0%, black 34%, black 76%, transparent 100%);
+}
+
+.wb-soft-card {
+  border: 1px solid color-mix(in srgb, var(--hairline) 80%, white);
+  box-shadow: 0 18px 50px color-mix(in srgb, var(--text-display) 8%, transparent), 0 2px 7px color-mix(in srgb, var(--text-display) 5%, transparent);
+}
+
+.wb-source-card { border-color: color-mix(in srgb, var(--text-display) 10%, transparent); }
+.wb-source-card:nth-child(4n + 1) { background: linear-gradient(135deg, color-mix(in srgb, var(--positive) 62%, white), color-mix(in srgb, var(--positive) 28%, white)); }
+.wb-source-card:nth-child(4n + 2) { background: linear-gradient(135deg, color-mix(in srgb, var(--interactive) 62%, white), color-mix(in srgb, var(--interactive) 26%, white)); }
+.wb-source-card:nth-child(4n + 3) { background: linear-gradient(135deg, color-mix(in srgb, var(--ai) 58%, white), color-mix(in srgb, var(--ai) 25%, white)); }
+.wb-source-card:nth-child(4n + 4) { background: linear-gradient(135deg, color-mix(in srgb, var(--review-text) 56%, white), color-mix(in srgb, var(--review-text) 22%, white)); }
+
+.wb-display {
+  font-family: var(--font-display);
+  font-weight: 560;
+  letter-spacing: -0.055em;
 }
 
 /* --- Ingestion orbit -------------------------------------------------------
@@ -216,7 +260,8 @@
 @media (prefers-reduced-motion: reduce) {
   .wb-orbit-flow,
   .wb-orbit-active,
-  .wb-orbit-node {
+  .wb-orbit-node,
+  .wb-ambient {
     animation: none;
   }
   .wb-orbit-flow { stroke-dasharray: none; }

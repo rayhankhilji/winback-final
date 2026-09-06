@@ -310,6 +310,7 @@ function buildExtractionPrompt(doc: SourceDoc): { systemInstruction: string; pro
 
   const prompt = [
     `Document: ${doc.title} (${doc.kind}).`,
+    `For every evidence entry from this document, set docId to exactly "${doc.id}". Never use a fixture id or infer another document id.`,
     `Your responsibility in this call: ${DOC_RESPONSIBILITY[doc.id] ?? DEFAULT_DOC_RESPONSIBILITY}`,
     '',
     'Document text, with each block preceded by its bracketed id:',
@@ -415,34 +416,65 @@ function toKeyTerm(m: z.infer<typeof ModelKeyTermSchema>): KeyTerm {
   return { ...m, evidence: toEv(m.evidence) };
 }
 
-function mergeSlices(
-  byDoc: Partial<Record<SourceDocId, ModelProfileSlice>>,
-): Omit<CompanyProfile, 'statementId' | 'provenance'> {
-  const mgmt = byDoc['mgmt-pres'];
-  const contracts = byDoc.contracts;
-  const capTable = byDoc['cap-table'];
-  const options = byDoc.options;
+interface SliceEntry {
+  doc: SourceDoc;
+  slice: ModelProfileSlice;
+}
+
+function byKind(entries: SliceEntry[], preferred: SourceDoc['kind'][]): SliceEntry[] {
+  return [...entries].sort((a, b) => {
+    const aRank = preferred.indexOf(a.doc.kind);
+    const bRank = preferred.indexOf(b.doc.kind);
+    return (aRank === -1 ? preferred.length : aRank) - (bRank === -1 ? preferred.length : bRank);
+  });
+}
+
+function firstValue<T>(entries: SliceEntry[], read: (slice: ModelProfileSlice) => T | null): T | null {
+  for (const entry of entries) {
+    const value = read(entry.slice);
+    if (value !== null && value !== '') return value;
+  }
+  return null;
+}
+
+function uniqueBy<T>(items: T[], key: (item: T) => string): T[] {
+  const seen = new Set<string>();
+  return items.filter((item) => {
+    const id = key(item);
+    if (seen.has(id)) return false;
+    seen.add(id);
+    return true;
+  });
+}
+
+/**
+ * Merge by document kind, never by fixture id. The model is instructed to be
+ * literal per document, so conflicts are resolved deterministically by the
+ * document type that is authoritative for that field. Any remaining document
+ * is still allowed to contribute facts; it just loses a conflict to the
+ * preferred source instead of being silently discarded.
+ */
+function mergeSlices(entries: SliceEntry[]): Omit<CompanyProfile, 'statementId' | 'provenance'> {
+  const narrative = byKind(entries, ['presentation', 'report', 'financial_statement']);
+  const financials = byKind(entries, ['financial_statement', 'presentation', 'spreadsheet']);
+  const contracts = byKind(entries, ['contract']);
+  const equity = byKind(entries, ['cap_table', 'spreadsheet']);
 
   return {
-    name: mgmt?.name ?? '',
-    sector: mgmt?.sector ?? '',
-    hq: mgmt?.hq ?? null,
-    foundedYear: mgmt?.foundedYear ?? null,
-    employees: mgmt?.employees ?? null,
-    businessSummary: mgmt?.businessSummary ?? '',
-    financials: (mgmt?.financials ?? []).map(toFinancialYear),
-    revenueMix: (mgmt?.revenueMix ?? []).map(toRevenueMixItem),
-    contracts: (contracts?.contracts ?? []).map(toCustomerContract),
-    capTable: (capTable?.capTable ?? []).map(toCapTableRow),
-    // Cap table wins on shares.
-    statedFullyDilutedShares: capTable?.statedFullyDilutedShares ?? mgmt?.statedFullyDilutedShares ?? null,
-    optionGrants: (options?.optionGrants ?? []).map(toOptionGrant),
-    keyTerms: [
-      ...(mgmt?.keyTerms ?? []),
-      ...(contracts?.keyTerms ?? []),
-      ...(capTable?.keyTerms ?? []),
-      ...(options?.keyTerms ?? []),
-    ].map(toKeyTerm),
+    name: firstValue(narrative, (slice) => slice.name) ?? '',
+    sector: firstValue(narrative, (slice) => slice.sector) ?? '',
+    hq: firstValue(narrative, (slice) => slice.hq),
+    foundedYear: firstValue(narrative, (slice) => slice.foundedYear),
+    employees: firstValue(narrative, (slice) => slice.employees),
+    businessSummary: firstValue(narrative, (slice) => slice.businessSummary) ?? '',
+    financials: uniqueBy(financials.flatMap((entry) => entry.slice.financials), (item) => item.fy).map(toFinancialYear),
+    revenueMix: uniqueBy(narrative.flatMap((entry) => entry.slice.revenueMix), (item) => item.label.toLowerCase()).map(toRevenueMixItem),
+    contracts: uniqueBy(contracts.flatMap((entry) => entry.slice.contracts), (item) => `${item.customer}\u0000${item.startDate}`).map(toCustomerContract),
+    capTable: uniqueBy(equity.flatMap((entry) => entry.slice.capTable), (item) => `${item.holder}\u0000${item.securityClass}`).map(toCapTableRow),
+    // Capitalisation tables outrank presentations for fully diluted shares.
+    statedFullyDilutedShares: firstValue(equity, (slice) => slice.statedFullyDilutedShares),
+    optionGrants: uniqueBy(equity.flatMap((entry) => entry.slice.optionGrants), (item) => `${item.grantee}\u0000${item.boardApprovalDate}`).map(toOptionGrant),
+    keyTerms: uniqueBy(entries.flatMap((entry) => entry.slice.keyTerms), (item) => `${item.label}\u0000${item.value}`).map(toKeyTerm),
   };
 }
 
@@ -478,13 +510,15 @@ export async function runExtraction(docsToProcess: SourceDoc[], allDocs: SourceD
 
   const classifications: DocClassification[] = [];
   const failures: StageFailure[] = [];
-  const sliceByDoc: Partial<Record<SourceDocId, ModelProfileSlice>> = {};
+  const slices: SliceEntry[] = [];
   let modelUsed = 'none';
 
   for (const outcome of outcomes) {
     if (outcome.ok && outcome.classification && outcome.slice) {
       classifications.push(outcome.classification);
-      sliceByDoc[outcome.docId] = outcome.slice;
+      const doc = docsToProcess.find((candidate) => candidate.id === outcome.docId);
+      if (!doc) throw new Error(`Extraction outcome references unknown document ${outcome.docId}`);
+      slices.push({ doc, slice: outcome.slice });
       modelUsed = outcome.model;
     } else if (outcome.failure) {
       failures.push(outcome.failure);
@@ -495,7 +529,7 @@ export async function runExtraction(docsToProcess: SourceDoc[], allDocs: SourceD
     throw new Error('Extraction failed for every document');
   }
 
-  const mergedProfile = mergeSlices(sliceByDoc);
+  const mergedProfile = mergeSlices(slices);
 
   let droppedEvidenceRefs = 0;
   walkEvidence(mergedProfile, (refs) => {

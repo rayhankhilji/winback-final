@@ -529,6 +529,55 @@ export const RunProgressSchema = z.object({
   llmCalls: z.number(),
 });
 
+/** Lightweight portfolio row. The dashboard and portfolio list deliberately
+ * receive this rather than a full run JSON blob. */
+export const CompanyStatusSchema = z.enum(['not_analysed', 'in_progress', 'complete', 'attention', 'failed']);
+export const CompanyListItemSchema = z.object({
+  id: z.string().uuid(),
+  name: z.string(),
+  sector: z.string().nullable(),
+  documentCount: z.number().int().nonnegative(),
+  findingCount: z.number().int().nonnegative(),
+  status: CompanyStatusSchema,
+  lastRunAt: IsoSchema.nullable(),
+});
+
+export const DocumentMetaSchema = z.object({
+  id: z.string().uuid(),
+  filename: z.string(),
+  title: z.string().nullable(),
+  docKind: DocKindSchema.nullable(),
+  pages: z.number().int().nonnegative(),
+  pageNoun: z.enum(['slide', 'page', 'row', 'grant']),
+  status: DocumentStatusSchema,
+  failureReason: z.string().nullable(),
+});
+
+export const BlockViewerResponseDataSchema = z.object({
+  block: BlockSchema,
+  document: DocumentMetaSchema,
+  neighbours: z.array(BlockSchema),
+});
+
+/** The one heavy read used by the company deep dive. Result blobs are only
+ * returned here, never on the polling or portfolio endpoints. */
+export const CompanyDetailRunSchema = z.object({
+  id: z.string().uuid(),
+  status: RunStatusSchema,
+  stage: RunStageSchema,
+  createdAt: IsoSchema,
+  extraction: ExtractionResultSchema.nullable(),
+  benchmark: BenchmarkResultSchema.nullable(),
+  portfolio: PortfolioImpactSchema.nullable(),
+  decision: DecisionResultSchema.nullable(),
+  memo: IcMemoSchema.nullable(),
+});
+export const CompanyDetailResponseDataSchema = z.object({
+  company: CompanyListItemSchema,
+  latestRun: CompanyDetailRunSchema.nullable(),
+  documents: z.array(DocumentMetaSchema),
+});
+
 // --- Request bodies ---------------------------------------------------------
 
 export const IngestRequestSchema = z.object({
@@ -568,6 +617,9 @@ export const MemoRequestSchema = z.object({
 export const DocsResponseSchema = ApiResponseSchema(z.object({ docs: z.array(SourceDocSchema) }));
 export const IngestResponseSchema = ApiResponseSchema(z.object({ runId: z.string() }));
 export const RunProgressResponseSchema = ApiResponseSchema(RunProgressSchema);
+export const CompaniesResponseSchema = ApiResponseSchema(z.object({ companies: z.array(CompanyListItemSchema) }));
+export const BlockViewerResponseSchema = ApiResponseSchema(BlockViewerResponseDataSchema);
+export const CompanyDetailResponseSchema = ApiResponseSchema(CompanyDetailResponseDataSchema);
 export const ExtractResponseSchema = ApiResponseSchema(ExtractionResultSchema);
 export const BenchmarkResponseSchema = ApiResponseSchema(BenchmarkResultSchema);
 export const PortfolioResponseSchema = ApiResponseSchema(PortfolioImpactSchema);

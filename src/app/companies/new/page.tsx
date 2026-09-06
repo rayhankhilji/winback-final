@@ -31,6 +31,17 @@ const SECTORS = [
   'Other',
 ];
 
+const SOURCE_TYPES = [
+  { name: 'Microsoft Excel', hint: 'Models & operating data', logo: 'microsoftexcel' },
+  { name: 'Microsoft Word', hint: 'Contracts & diligence notes', logo: 'microsoftword' },
+  { name: 'PowerPoint', hint: 'Management presentations', logo: 'microsoftpowerpoint' },
+  { name: 'Airtable', hint: 'Pipeline & customer data', logo: 'airtable' },
+  { name: 'Google Sheets', hint: 'Operating workbooks', logo: 'googlesheets' },
+  { name: 'Google Drive', hint: 'Source file exports', logo: 'googledrive' },
+  { name: 'Notion', hint: 'Research & notes', logo: 'notion' },
+  { name: 'Dropbox', hint: 'Shared deal rooms', logo: 'dropbox' },
+];
+
 interface Queued {
   file: File;
   id: string;
@@ -139,14 +150,19 @@ export default function NewCompanyPage() {
   } as const;
 
   return (
-    <div style={{ maxWidth: 760 }}>
-      <h1 style={{ margin: 0, fontSize: 26, fontWeight: 500, color: 'var(--text-display)' }}>
+    <div className="relative mx-auto max-w-[1400px] overflow-hidden rounded-[30px] border bg-white p-6 shadow-xl shadow-black/5 sm:p-9">
+      <div className="wb-ambient pointer-events-none absolute inset-x-0 top-0 h-28 opacity-45" />
+      <div className="relative">
+      <span className="rounded-full border bg-white/80 px-3 py-1 text-xs font-medium text-[var(--text-secondary)]">New workspace</span>
+      <h1 className="wb-display" style={{ margin: '18px 0 0', fontSize: 38, color: 'var(--text-display)' }}>
         Add a company
       </h1>
       <p style={{ margin: '8px 0 28px', fontSize: 14, color: 'var(--text-secondary)' }}>
         Drop in whatever you have. Decks, contracts, cap tables, spreadsheets, scans — Winback reads
         them and cites every figure back to the line it came from.
       </p>
+
+      <section className="mb-8"><div className="mb-3 flex items-center justify-between"><p className="text-sm font-medium text-[var(--text-display)]">Bring your existing work</p><p className="text-xs text-muted-foreground">Upload exports or files directly</p></div><div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">{SOURCE_TYPES.map(({ name: sourceName, hint, logo }) => <div key={sourceName} className="wb-source-card group relative overflow-hidden rounded-2xl border p-4 transition-transform hover:-translate-y-0.5"><span className="flex size-10 items-center justify-center rounded-xl bg-white p-2.5 shadow-sm"><img src={`https://cdn.simpleicons.org/${logo}`} alt="" className="size-full" /></span><p className="mt-4 text-sm font-medium text-[var(--text-display)]">{sourceName}</p><p className="mt-1 text-xs text-muted-foreground">{hint}</p></div>)}</div></section>
 
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
         <div>
@@ -311,6 +327,7 @@ export default function NewCompanyPage() {
             {progress}
           </span>
         ) : null}
+      </div>
       </div>
     </div>
   );

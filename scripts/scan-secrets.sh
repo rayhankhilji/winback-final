@@ -26,7 +26,9 @@ if [ -n "$AIZA_MATCHES" ]; then
 fi
 
 # 2. Service Account Private Keys
-PK_MATCHES=$(git grep -E -I "(-----BEGIN PRIVATE KEY-----|\"type\": \"service_account\"|\"private_key_id\")" -- . || true)
+# Exclude this scanner: its detection expression necessarily contains the
+# literals it is looking for, which is not a credential.
+PK_MATCHES=$(git grep -E -I "(-----BEGIN PRIVATE KEY-----|\"type\": \"service_account\"|\"private_key_id\")" -- . ':!scripts/scan-secrets.sh' || true)
 if [ -n "$PK_MATCHES" ]; then
     echo "🚨 Service account private keys found in working tree:"
     echo "$PK_MATCHES"
@@ -53,14 +55,14 @@ HIST_AIZA=$(git log -p -S "AIza" --all || true)
 # For simplicity, we just use git log -G to see if these strings ever existed in commits.
 # We'll skip complex regex in git log -G and just check "BEGIN PRIVATE KEY" and "type\": \"service_account"
 
-HIST_PK=$(git log -G "BEGIN PRIVATE KEY" --oneline --all || true)
+HIST_PK=$(git log -G "BEGIN PRIVATE KEY" --oneline --all -- . ':!scripts/scan-secrets.sh' || true)
 if [ -n "$HIST_PK" ]; then
     echo "🚨 Private key found in git history:"
     echo "$HIST_PK"
     exit 1
 fi
 
-HIST_SA=$(git log -G "\"type\": \"service_account\"" --oneline --all || true)
+HIST_SA=$(git log -G "\"type\": \"service_account\"" --oneline --all -- . ':!scripts/scan-secrets.sh' || true)
 if [ -n "$HIST_SA" ]; then
     echo "🚨 Service account found in git history:"
     echo "$HIST_SA"

@@ -51,7 +51,7 @@ These findings are surfaced in the Decision screen with inline citations, allowi
  (server-only key)   (static docs)         (auth & persistence)
 ```
 
-**Stateless Routes:** API routes remain stateless with respect to the pipeline. Supabase holds *saved results*, not *in-flight state*. If a route needs the extracted profile, the client sends it. This ensures parallelizability and durability against database outages.
+**Persisted ingestion:** Uploaded files live in Supabase Storage; their parsed document metadata and permanent citable blocks live in Postgres under organisation RLS. Background runs persist their progress and result blobs so the portfolio, deep dive, and evidence drawer can read the same analysis later.
 
 **Evidence Model:** Every document is an ordered list of blocks with stable, permanent IDs (e.g., `s4-b2`). The UI resolves evidence references natively without needing secondary network requests.
 
@@ -129,7 +129,7 @@ click a block, inspect the cited highlight, close with Esc, then try search, fil
 2. **Evidence refs are validated server-side:** Any reference produced by the LLM is verified against the actual documents server-side. A dead link or hallucinated quote is dropped or downgraded, ensuring the UI cannot render a broken citation.
 3. **Procedure-not-answer prompts:** Crosscheck prompts (see `src/lib/pipeline/prompts/`) state a *procedure* ("Compare management's characterisation of revenue quality against the actual contracts"), not the answer. 
 4. **No verdicts by design:** WinBack states facts, comparisons, and contradictions. It never issues verdicts (e.g., "Do not do this deal"). The analyst stays in the loop with explicit Accept/Dismiss/Edit controls.
-5. **Documents are never persisted:** WinBack stores derived analysis, not the underlying confidential documents. Documents are static fixtures rehydrated on load.
+5. **Documents are persisted under RLS:** confidential originals remain in private Supabase Storage, while parsed blocks are stored so every evidence chip can resolve to the exact uploaded source passage.
 6. **Provenance on every statement:** Every generated assertion carries strict provenance (cited vs. derived vs. unsourced). `assertSourced()` runs in dev to enforce this constraint.
 7. **Audit trail as an append-only subcollection:** Written fire-and-forget to avoid blocking the pipeline. An availability-over-completeness tradeoff appropriate for this tier of product.
 8. **`getUserId()` as the single auth surface:** Auth is completely decoupled from the rest of the application logic. If Supabase Auth had to be swapped for Clerk, it would be a 90-minute isolated change.
@@ -171,8 +171,8 @@ When you start `pnpm dev`, the app will redirect to `/sign-in` until you create 
    - **Your details** — enter your full name.
    - **Company details** — create an organization (you become an `admin`).
    - **Invite teammates** — optionally generate copyable `/invite/[token]` links to share with others.
-   - **Upload documents** — optionally name companies to track (stub only; extraction wiring is future work).
-3. Redirect to `/` (Plan screen) as an authenticated user.
+   - **First company** — continue to the unified company and document upload flow.
+3. Add a company at `/companies/new`, upload supported documents, and follow the processing run at `/runs/[id]`.
 
 **Auth Flows:**
 
@@ -192,7 +192,7 @@ For the complete design, architecture, and data model, see [`docs/superpowers/sp
 ## Out of Scope
 
 To ensure a high-quality slice of value within the 24-hour build constraints, the following were deliberately omitted:
-- **Real file parsing:** No PDF/DOCX/XLSX parsing or user uploads. Documents are structured JSON/TS fixtures.
+- **Real file parsing:** PDF, DOCX, XLSX/CSV, PPTX, images, and scanned PDFs are supported. Parsed blocks and model fallback paths require configured Supabase and Gemini credentials to be exercised live.
 - **Other diligence workstreams:** Legal, tax, HR, and IT are rendered as disabled "Coming Soon" cards.
 - **Diversification modeling:** Portfolio impact only checks sector concentration, not complex risk-contribution modeling.
 - **General peer benchmarking:** Benchmarking uses exactly 3 fixed comparables and 3 metrics.

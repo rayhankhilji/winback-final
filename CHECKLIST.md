@@ -29,14 +29,12 @@ stage you are on, what the last agent assumed, what they deviated from, and what
 
 ## Current state
 
-**Stage:** 4 — Ingest API and background job
-**Status:** not started. Stages 2 and 3 both have an unrun database half — read Q9 first.
-**Last session:** 2026-09-06 — Stage 4 plus the motion/brand work and the integrations screen.
-**Next action:** Screen 1 (upload) and Screen 2 (processing). Screen 2's animation already exists —
-`IngestionOrbit` takes `RunProgress` straight from `GET /api/runs/[id]`, so Screen 2 is mostly
-wiring the 1.5s poll to it.
-**Blocked by:** nothing in code. Still no database and no Gemini key reachable from this machine
-(Q6/Q9/Q13), so everything touching Postgres or a live model is written-but-unproven.
+**Stage:** 9 — Polish and ship
+**Status:** code-complete pending live verification. Stages 2–8 are written and static-regressed, but no path has touched a live database or model.
+**Last session:** 2026-09-06 — Stage 9 README, onboarding, secret scan.
+**Next action:** add real Supabase and Gemini credentials, then run the prescribed unblocking sequence in `HANDOVER.md` before claiming the build is shipped.
+**Blocked by:** no database and no Gemini key reachable from this machine (Q6/Q9/Q13). All new
+database code is written and typechecked, not executed.
 
 ---
 
@@ -58,10 +56,14 @@ Full definitions in `docs/BUILD_PLAN.md`. Mark `[x]` done, `[~]` partial, `[ ]` 
 - [~] **5 — Upload and Processing screens.** Both built (`/companies/new`, `/runs/[id]`). Neither has
       completed a real run — no database, no model key (Q9/Q11/Q13). Onboarding still carries its own
       upload path (Q16).
-- [ ] **6 — Dashboard and portfolio list.**
-- [ ] **7 — Company deep dive.** Needs `recharts` added.
-- [ ] **8 — Document viewer on real documents.**
-- [ ] **9 — Polish, README, secret scan, ship.**
+- [~] **6 — Dashboard and portfolio list.** Typed `GET /api/companies`, dashboard, portfolio list,
+      filters, empty/loading/error states, and sidebar links are written. None has read a real row.
+- [~] **7 — Company deep dive.** Typed heavy read, five-tab screen, evidence chips, Recharts revenue
+      trajectory, and persisted-document reanalysis route are written. No real result has rendered.
+- [~] **8 — Document viewer on real documents.** `GET /api/blocks/[blockId]` returns a block and ±10
+      neighbours under RLS; the existing drawer falls back to it when a citation is not in fixture docs.
+      No live block has been resolved yet.
+- [~] **9 — Polish, README, secret scan, ship.** README now describes persisted documents; onboarding routes to the single `/companies/new` path; secret scan is clean. Live QA, 1024px/browser keyboard checks, and the credential unblocking sequence remain.
 
 ---
 
@@ -72,7 +74,7 @@ and say so.
 
 | # | Assumption | Made in | Confidence | Verified? |
 |---|---|---|---|---|
-| A1 | The crosscheck prompts are written as procedures, not answers, so they will fire on arbitrary uploaded documents rather than only the Kestrel fixtures. | Stage 0 review | medium | **No — verify in Stage 4. If false, this is the whole project.** |
+| A1 | The crosscheck prompts are written as procedures, not answers, so they will fire on arbitrary uploaded documents rather than only the Kestrel fixtures. | Stage 0 review | medium | **Partly — arbitrary UUID extraction now works live with zero dropped citations; multi-document live crosschecks still unverified.** |
 | A2 | Widening the two doc-kind enums does not break `MOCK_LLM=1`, the golden fixtures, or `/graph?demo=1`, because fixtures become valid data under a wider type. | Stage 1 plan | high | No |
 | A3 | Parsing a large PDF plus parallel Gemini calls exceeds `maxDuration = 60`, which is why ingestion is a background job. | Stage 0 review | high | No |
 | A4 | `RUN_BUDGET_MAX = 500` is too low once documents are real rather than four fixtures. | Stage 0 review | medium | No |
@@ -88,6 +90,7 @@ and say so.
 | A9 | `option_grants` maps to `cap_table` in the new vocabulary. Guessed. Both are equity documents and the new enum has no grant-schedule literal; `report`/`spreadsheet`/`other` all fit worse. Consequence: `cap-table` and `options` now report the same `docKind`. Nothing reads it, so nothing breaks, but the classification display is less specific than it was. | Stage 1 | medium — **guessed** | No — revisit if a screen ever surfaces `docKind` to the user. |
 | A7 | The `/onboarding` prerender crash on a bare `pnpm build` is purely missing Supabase env, not inherited breakage — it disappeared entirely once placeholder values were present. | Setup | high | Partly — build goes green with placeholders; not retested with real keys. |
 | A6 | Gemini vision handles PPTX and screenshots well enough to produce usable blocks, since no good Node PPTX parser is worth the time. | Ingestion design | medium | No |
+| A17 | A company’s `latest_run_id` always references a row visible under the same org RLS policy, so the portfolio summary can read the run set once and map it in memory. | Stage 6 | high | No — follows the migration shape but has not run against Postgres. |
 
 ---
 
@@ -119,6 +122,8 @@ Deviations from the written docs, and why. Empty is fine at the start.
 | R16 | `SCREENS.md` 2 says to reuse the existing four-stage stepper in `src/components/app-shell/` and not build a second one | Built `src/components/ingest/stage-stepper.tsx` | There is no stepper in `app-shell/` — the doc is wrong about the codebase. Built once, in the place the instruction should now point at. **`SCREENS.md` needs correcting.** |
 | R17 | The supplied orbit animation was to be rebuilt natively (R14/A16) | Also ship the original SVG with only its gear cluster swapped for the Winback mark, at `/anim/orbit-winback.svg` | The user twice asked for their own assets, and they were right that the rebuild threw away the orbiting product marks that made the reference good. The SVG animates via SMIL with no player, so it costs one cached request and no JavaScript. `scripts/build-orbit-svg.ts` (`pnpm build:orbit`) regenerates it and throws if the reference no longer matches, rather than silently keeping the gears. The native `IngestionOrbit` stays for the data-driven per-document view. |
 | R15 | Nothing in the docs covers a settings area | Added `/settings` with its own grouped nav and `/settings/integrations` | Requested directly, with a reference design. The switches have no OAuth backend and the page says so on its face rather than implying a connection it cannot make. |
+| R18 | `SCREENS.md` 7–11 says onboarding should link to `/companies/new`, but the implementation carried a separate storage upload form | Removed the duplicate form and now route the final onboarding step to `/companies/new` | One upload path is a correctness constraint: the unified screen applies picker validation, creates the run, and reports processing progress; onboarding's old path only wrote storage objects. |
+| R19 | `DESIGN.md` says to use one sans-serif face and leads with a restrained sand palette | The user redirected the live product toward layered white/pearl surfaces, an editorial serif reserved for display headings, and bright bounded cobalt/coral/mint/violet ambience with dither texture | The UI needs a clearer premium visual hierarchy. Semantic rules remain: pink continues to mean AI-generated content only, and data remains legible on neutral surfaces. |
 
 ---
 
@@ -141,9 +146,14 @@ Things nobody has resolved. Add to this rather than guessing silently.
 | Q12 | Should the parser dependency versions be pinned exactly? Block ids are permanent, and a minor `pdf-parse` release that changes paragraph splitting would renumber blocks and dangle every stored citation (A12). Currently caret ranges. | Any real stored citation | Stage 3 |
 | Q9 | Migration `0004` has never been executed. There is no Postgres on this machine — no Docker for `supabase start`, no local server, no reachable project — so the SQL is reviewed but unrun, and Stage 2's "done when" (org A cannot read org B's rows, **proven by a test**) is unproven. The test exists at `src/lib/__tests__/rls.integration.test.ts` and skips itself with a visible marker rather than passing vacuously. | Everything from Stage 3 on rests on this schema | Stage 2 |
 | Q10 | `BlockSchema` carries a `deprecated?: boolean` — the documented way to retire a block after Hour 6 without breaking a citation — but `DATA_MODEL.md` gives `document_blocks` no column for it. A deprecated block cannot currently be persisted as deprecated. Either the column is missing from the data model or the field is dead in the contract. | Stage 8 — document viewer | Stage 2 |
-| Q7 | `mergeSlices` in `extraction.ts:407` reads `byDoc['mgmt-pres']`, `byDoc.contracts`, `byDoc['cap-table']`, `byDoc.options` by literal. An uploaded document's extracted slice is silently dropped — it contributes nothing to the merged `CompanyProfile`. Left alone deliberately: fixing it means designing how N arbitrary documents merge into one profile, which is Stage 3/4 work, not a contract change. | Stage 3 — uploaded documents produce nothing until this is solved | Stage 1 |
-| Q8 | `quantify.ts:68,72` filters counter-evidence on `e.docId === 'options'`, and both crosscheck prompt packs (`recurring-revenue.ts:24`, `option-dilution.ts:21`) declare hardcoded fixture `docIds`. The crosscheck layer is still Kestrel-shaped even though the contract is now open. | Stage 4 — crosschecks firing on arbitrary uploads (this is A1, the assumption the whole project rests on) | Stage 1 |
+| ~~Q7~~ | ~~`mergeSlices` reads four fixture IDs and drops uploaded slices.~~ **Answered in Stage 6: it now merges every successful slice by `doc.kind`, using deterministic authority order and de-duplication. The behaviour is typechecked/test-suite-regressed but has not run on a live model.** | ~~Stage 3~~ | Stage 1 / Stage 6 |
+| ~~Q8~~ | ~~Crosscheck input selectors and option quantification are fixture-shaped.~~ **Partly answered in Stage 4 (R13): crosscheck selectors now use `docKinds`. The model-quality question remains Q13; `quantify.ts` still needs a real non-fixture run to establish whether any option-grant evidence carries the correct open document id.** | ~~Stage 4 mechanical blocker~~ | Stage 1 / Stage 4 |
 | Q6 | Which Supabase project do we point at? The build needs real `NEXT_PUBLIC_SUPABASE_URL` / `ANON_KEY` / `SERVICE_ROLE_KEY` before any page past `/sign-in` can be opened, including the fixture demo. | Verifying the fixture path; Vercel deploy | Setup |
+| Q17 | `pnpm build` compiled and completed TypeScript, but static generation timed out retrying `/_global-error` and `/_not-found`. Determine whether this is a local Next/Turbopack worker issue or inherited app behaviour before ship; do not call the full build green yet. | Stage 9 ship gate | Stage 6 |
+| ~~Q18~~ | ~~`POST /api/companies/[id]/reanalyse` is not implemented.~~ **Answered in Stage 7: the route creates a run and `runReanalysis` loads only persisted parsed documents; it never downloads or parses files. This remains unexecuted until Q9/Q11 are closed.** | ~~Stage 7 completion~~ | Stage 7 |
+| ~~Q9~~ | ~~Migration `0004` has never executed and RLS is unproven.~~ **Answered live: `supabase db push` applied 0001–0004 and all 7 RLS isolation cases passed.** | ~~Everything persisted~~ | Stage 10 live verification |
+| ~~Q11~~ | ~~No ingestion code has written a row.~~ **Answered live: `pnpm ingest:file` parsed a real PDF, Gemini classified it, wrote `documents` + 12 blocks, and read the contract-valid blocks back in order.** | ~~Persistence~~ | Stage 10 live verification |
+| Q19 | Gemini vision fallback for a sparse synthetic PDF returns Gemini `400 INVALID_ARGUMENT` at `parse:<uuid>`. A live PNG invocation on 2026-09-06 succeeded through the same `parseWithModel`/inline-data path (`pages: 1`, `segments: 0` for an intentionally blank image), so image fallback is no longer implicated. Diagnose PDF-specific input/model handling before claiming scanned-PDF or PPTX support. | Scanned-PDF/PPTX promise | Stage 10 live verification |
 
 ---
 
@@ -168,6 +178,61 @@ pnpm validate:data
 
 Newest at the top. Three lines each: what you did, what broke, what the next agent should know.
 
+### 2026-09-06 — Visual system and workflow polish
+Did: redesigned the live dashboard around a bright ambient/dither hero, layered neutral cards, display typography, a card-based "Add a company" CTA, portfolio activity and a useful empty state; removed Add company from sidebar. Restyled the company upload and real processing screen around the same system. Added a compact, evidence-bound Ask Winback panel inside the citation drawer — it is a source-navigation helper and explicitly does not fabricate uncited analysis.
+Broke / didn't finish: Image generation returned no usable asset, so the new ambient treatment is tokenised CSS rather than a checked-in raster. Local `tsc --noEmit`, targeted ESLint and the full Vitest suite are green (80 passed / 7 skipped); `next build` compiled successfully and entered its TypeScript stage, but the runner cut off before static-generation completion, so do not call the full ship gate green. The assistant is deliberately local/evidence-bound; a real conversational model endpoint still needs a separately-designed cited-answer contract.
+Next agent should know: the user’s latest direct redirection is R19. Keep the dynamic colour bright but contained; never use it to conceal status or make a non-AI element pink. Validate the new dashboard, `/companies/new`, `/runs/[id]`, and the evidence drawer in the browser after restarting the dev server.
+
+### 2026-09-06 — Workspace scale pass
+Did: enlarged the permanent navigation rail to 288px/320px at large breakpoints, added icon-led grouped navigation and brand treatment, removed the main content max-width, and increased dashboard hero/metric/card scale for a full-screen 16:10 workspace.
+Broke / didn't finish: this was derived from the user’s sizing/layout reference only; browser interaction automation was unavailable, so the visual proportions still need a human pass at the user’s MacBook viewport. No proprietary copy or third-party imagery was imported.
+Next agent should know: preserve this generous rail/canvas ratio across remaining screens; shrinking individual pages back to `max-w-6xl` will undo the product-level layout correction.
+
+### 2026-09-06 — Navigation hierarchy correction
+Did: replaced the global deal/graph navigation with Home, Portfolio and Companies; added the cross-portfolio `/portfolio` view; made the rail viewport-height and independently scrollable; removed dark icon backdrops; restored a single modern sans type system; and placed a company-specific source-map/knowledge-graph tab inside each company workspace.
+Broke / didn't finish: image generation again returned no usable asset, so ambient colour remains CSS-backed. The company graph currently maps real documents in that company; it is not yet the richer entity relationship graph promised by the older fixture-only `/graph` screen. Documents are listed in the company workspace but a dedicated full-document reading route remains unfinished.
+Next agent should know: `tsc --noEmit` and targeted ESLint are green after this pass. Do not restore `/graph` to the global sidebar; it is fixture-shaped and violates the user’s requested hierarchy.
+
+### 2026-09-06 — Company knowledge-map direction
+Did: found the cofounder’s real graph implementation: `GraphCanvas`, `GraphExplorer`, and `lib/graph/build.ts` genuinely construct nodes and edges for documents, blocks, entities, metrics, findings, contradictions and evidence. Added slow token-colour ambient drift, respecting reduced-motion preferences.
+Broke / didn't finish: removed the erroneous honeycomb placeholder. The real graph API is fixture-only by explicit design: `/api/graph` returns unavailable for saved company data. It needs a persisted-company adapter before it can truthfully render inside a company workspace.
+Next agent should know: do not replace the existing graph with a visual approximation. Wire `latestRun` and persisted documents into `buildKnowledgeGraph` behind an authenticated company-scoped API, then render the existing `GraphExplorer`/`GraphCanvas`.
+
+### 2026-09-06 — Upload workspace expansion
+Did: expanded `/companies/new` into a full-width upload workspace with Excel, Word, PowerPoint and Airtable-export affordance cards plus the existing real drag/drop, picker validation and upload pipeline.
+Broke / didn't finish: the cards are deliberately format affordances, not claimed live OAuth integrations; LogoKit remains unconfigured. The required authenticated persisted-company graph adapter and full-document route are still outstanding implementation, not solved by UI.
+Next agent should know: retain one upload path. Do not make a modal or card that simulates importing a third-party service without a real connection.
+
+### 2026-09-06 — Source logo and sidebar pass
+Did: expanded the upload source gallery to eight recognised formats and replaced invented icons with the Simple Icons CDN marks for Microsoft Excel/Word/PowerPoint, Airtable, Google Sheets/Drive, Notion and Dropbox. Used the open lower sidebar area for a concise workspace guide.
+Broke / didn't finish: these are correctly labelled export/source options, not authenticated integrations; all still feed the one file-upload path. CDN availability is external and needs a local asset fallback only if product requirements demand offline branding.
+Next agent should know: the real graph and document-reader functional gaps remain separate from this visual pass.
+
+### 2026-09-06 — Contextual company navigation
+Did: added a company-only nested section to the persistent sidebar which appears on `/companies/[id]` and links directly to Overview, Financials, Documents, Knowledge graph, Findings and Memo. The selected company tab now reads the `tab` query parameter. Added four distinct, tokenised colour/dither treatments cycling across source-format cards.
+Broke / didn't finish: tabs remain the current implementation beneath the sidebar rather than a newly-built second navigation system. The company overview still needs a fuller information architecture once real persisted graph/document reader data is connected.
+Next agent should know: use `?tab=graph` for the graph section (not `knowledge-graph`). Keep all colour treatments token-derived and pink reserved for AI-related context.
+
+### 2026-09-06 — Demo visual correction
+Did: removed the source-card pseudo-element that overlaid card content and switched the eight source panels to opaque, saturated token-derived colour treatments for a clearer demo state.
+Broke / didn't finish: no claim that remaining persisted graph/document reader functionality is complete; it remains the substantive gap. Source logos are CDN assets and may be unavailable if the demo network blocks them.
+Next agent should know: the actual upload, validation and run-start workflow is still the single canonical path and was not altered by this visual correction.
+
+### 2026-09-06 — Downloadable analysis workbook
+Did: added authenticated `GET /api/companies/[id]/export` and a Download XLSX action in the company workspace. It generates a workbook on demand from persisted data: Overview, Financials, Insights, Source documents and Memo. Extracted the workbook builder into `lib/export/company-workbook.ts` and added a regression test which creates a workbook, reopens it through `xlsx`, and asserts all sheets, an insight and source document are intact. The actual ingestion pipeline already parses supported documents, stores addressable source blocks, and runs extraction/crosschecks; live text-layer PDF parsing, persistence and extraction were previously proven.
+Broke / didn't finish: the workbook reflects only a completed persisted run; a company without one gets the source-document sheet and explicit empty analysis sheets. Vision fallback for scanned/PPTX/images remains Q19 and must not be demoed as proven.
+Next agent should know: `tsc --noEmit`, targeted lint, the workbook regression test, and the full suite pass: **81 passed / 7 expected skipped**. The persisted-company graph and full-document reader remain unimplemented.
+
+### 2026-09-06 — Production-route check
+Did: reran the production build after the workbook route was added. Next compiled the optimized application successfully, including the route, and entered its TypeScript verification stage.
+Broke / didn't finish: the local runner again cut the build off after 30 seconds before static-generation completion (Q17); this is not a reported application compile failure. The test suite remains the authoritative completed verification for the new workbook behavior.
+Next agent should know: do not represent a full `next build` completion until the local worker/static-generation behaviour is resolved.
+
+### 2026-09-06 — Live model fallback distinction
+Did: invoked `parseWithModel` with a valid PNG through the configured live Gemini key. The model accepted the base64 inline-data request and returned a contract-valid parse (`pages: 1`, zero segments for an intentionally blank image) in 2.3s.
+Broke / didn't finish: this disproves a general image-inline-data fault but does not resolve the earlier sparse synthetic-PDF 400 or prove PPTX handling.
+Next agent should know: Q19 is PDF/PPTX-specific now; normal deterministic formats and image fallback are independently verified.
+
 ### (template — copy this)
 ```
 ### YYYY-MM-DD HH:MM — Stage N
@@ -175,6 +240,47 @@ Did:
 Broke / didn't finish: 
 Next agent should know: 
 ```
+
+### 2026-09-06 — Stages 6 and 8, Q7
+Did: replaced the dashboard's direct browser-Supabase reads with `src/lib/client/companies.ts` and a
+typed, RLS-backed `GET /api/companies`; built dashboard and `/companies` loading, empty, error and
+filter states. Fixed Q7 in `extraction.ts`: slices now merge by document kind and deterministic field
+authority, with duplicate keys removed, instead of silently selecting four fixture IDs. Added the real
+`GET /api/blocks/[blockId]` reader and made `EvidenceDrawer` use it only when the fixture snapshot
+cannot resolve a citation. Added `recharts` at the workspace root for Stage 7.
+Broke / didn't finish: no live database/model verification; Stage 7 API/deep dive is still next.
+`typecheck`, `lint`, and `test` pass (80 / 7 skipped). Build compiled and typed but static page
+generation timed out on global Next error pages (Q17), so it is not marked green.
+Next agent should know: do not weaken the fixture path — drawer local resolution remains first, and
+the remote request happens only for unknown block IDs. Run the credential unblocking sequence before
+declaring the new routes functional.
+
+### 2026-09-06 — Stage 7
+Did: added typed `GET /api/companies/[id]` (one heavy result-blob read), `src/lib/client/company-detail.ts`,
+and `/companies/[id]` with Overview, Financials, Documents, Findings, and Memo tabs. The financial chart
+uses `recharts`; extracted figures and finding/memo claims retain the existing evidence-chip path.
+Broke / didn't finish: `POST /api/companies/[id]/reanalyse` is not wired (Q18); the UI button is disabled
+rather than pretending it works. No deep dive has rendered live data.
+Next agent should know: typecheck, lint, and tests pass after Stage 7 (80 / 7 skipped). Run the full build
+again after the next coherent change, and only turn on reanalysis after a live project can prove it loads
+persisted parsed blocks rather than parsing again.
+
+### 2026-09-06 — Stage 7 reanalysis
+Did: added `POST /api/companies/[id]/reanalyse`, `runReanalysis`, and the deep-dive action. The runner
+loads `loadCompanyDocuments` and explicitly does not download or parse original files; it writes normal
+run progress and routes to `/runs/[id]`.
+Broke / didn't finish: typecheck passes, but no database/model path has run.
+Next agent should know: lint/test/build remain to run after this exact change; Q13 stays the priority.
+
+### 2026-09-06 — Stage 9
+Did: removed onboarding's duplicate file-upload path and now hand off to `/companies/new` (R18); corrected README claims about persisted documents and real parsing; added `recharts`; fixed the secret scanner to exclude its own detector expressions in the working tree and git-history scan. The corrected secret scan is clean; typecheck and lint pass.
+Broke / didn't finish: live browser, RLS, persistence, real upload, Gemini fallback, and arbitrary-document crosscheck verification cannot run without credentials. The build command compiles/typechecks but its static-generation process has been flaky in this shell (Q17), so do not claim the full gate green until it completes once cleanly.
+Next agent should know: do not build more UI before the HANDOVER.md credential sequence. Q13/A1 is the product proof; if it fails, fix that before polish.
+
+### 2026-09-06 — Live verification
+Did: linked the configured Supabase project; applied migrations 0001–0004; live RLS suite passed 7/7; seeded `test@test.com` / `test123` and company `5bdcd4a7-c0c4-4e0f-8080-58b3ddefcee0`. `pnpm ingest:file` parsed a text-layer PDF, Gemini classified it, wrote 12 blocks, and read them back contract-valid. Live Gemini extraction initially emitted fixture `mgmt-pres` document ids and dropped three citations; fixed the prompt to pin the active doc id, then reran with zero dropped citations and an extracted Northstar Analytics profile.
+Broke / didn't finish: sparse/scanned PDF vision fallback returns Gemini `400 INVALID_ARGUMENT` (Q19). Browser sign-in and dashboard work on localhost; the UI file chooser automation session dropped before a `/companies/new` submission. Full multi-document crosscheck transfer/Q13 remains unproven.
+Next agent should know: the next product test is three arbitrary docs (presentation, contract, cap table) through `/companies/new`, then verify crosschecks and evidence drawer. Do not call PPTX/image/scan support live until Q19 is fixed.
 
 ### 2026-09-06 — Stage 5
 Did: `/companies/new` (name, sector, drag-and-drop, per-file rows, picker-level rejection with a
