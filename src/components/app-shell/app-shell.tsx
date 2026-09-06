@@ -9,6 +9,7 @@
 
 'use client';
 
+import { Suspense } from 'react';
 import { usePathname } from 'next/navigation';
 import { Sidebar } from '@/components/app-shell/sidebar';
 
@@ -30,7 +31,11 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
   return (
     <div className="flex min-h-full flex-1 bg-[var(--surface-canvas)]">
-      {showSidebar && <Sidebar />}
+      {showSidebar && (
+        <Suspense fallback={null}>
+          <Sidebar />
+        </Suspense>
+      )}
       <main className="wb-workspace-main min-w-0 flex-1 px-5 py-6 sm:px-8 lg:px-10 lg:py-8">{children}</main>
     </div>
   );
