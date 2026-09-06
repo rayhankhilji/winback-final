@@ -233,6 +233,11 @@ Did: added a real state-driven compact sidebar mode using the supplied `MenuButt
 Broke / didn't finish: no new duplicate navigation or fake animation was added; company sections remain available in the expanded rail. README simplification remains a documentation follow-up rather than an excuse to retain incorrect product claims.
 Next agent should know: this is UI state only; it does not affect routing, upload, extraction or the persisted-company workflow.
 
+### 2026-09-06 — README correction
+Did: replaced the README’s stale promotional opening and unverified live-URL claim with a concise, accurate capability summary and an explicit reliable-demo format note.
+Broke / didn't finish: deeper historical implementation notes remain for maintainers; the public opening no longer claims unsupported scanned-PDF/PPTX handling.
+Next agent should know: keep user-facing documentation tied to proven workflows and call out unverified branches plainly.
+
 ### 2026-09-06 — Live model fallback distinction
 Did: invoked `parseWithModel` with a valid PNG through the configured live Gemini key. The model accepted the base64 inline-data request and returned a contract-valid parse (`pages: 1`, zero segments for an intentionally blank image) in 2.3s.
 Broke / didn't finish: this disproves a general image-inline-data fault but does not resolve the earlier sparse synthetic-PDF 400 or prove PPTX handling.

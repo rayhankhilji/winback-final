@@ -1,15 +1,16 @@
 # WinBack
 
-**Autonomous first-pass diligence for private equity deal teams.**
+Winback turns a company’s source documents into a reviewable diligence workspace. Upload a deck, contract, model or spreadsheet; the pipeline stores citable blocks, extracts structured information, surfaces evidence-linked findings, and exports the completed analysis to Excel.
 
-First-pass diligence is traditionally ~100+ hours of reading across fragmented documents to assemble a profile and identify material inconsistencies. WinBack automates this initial pass across four layers: extracting a structured profile, computing peer benchmarks, modeling portfolio concentration impact, and surfacing crosscheck contradictions directly linked to source evidence.
+## What works
 
-## Live URL
+- Private Supabase-backed company workspaces and document storage
+- PDF, DOCX, XLSX and CSV parsing into permanent source blocks
+- Gemini extraction, evidence verification, crosschecks and memo drafting
+- Portfolio and company views with direct source evidence
+- Downloadable XLSX with Overview, Financials, Insights, Source documents and Memo sheets
 
-The application is deployed live on Vercel:
-**[https://winback-1.vercel.app](https://winback-1.vercel.app)**
-
-Sign up at `/sign-up` to create your own account (see [Authentication Setup](#authentication-setup) below).
+Use text-based PDFs, DOCX or XLSX for the most reliable demo route. The scanned-PDF/PPTX fallback remains under investigation.
 
 ## The Two Crosschecks
 
