@@ -104,6 +104,130 @@
   --attention-foreground: hsl(48 96% 15%);
   --stage-active: var(--primary);
   --stage-done: hsl(215.4 16.3% 46.9%);
+
+  /* --- DESIGN.md semantic tokens ------------------------------------------
+     Straight from the tables in docs/DESIGN.md. The shadcn variables above
+     are the inherited Stage 0 theme and are deliberately left alone; these
+     are added so components can follow the rule that colour comes from a
+     token and never from a hex literal. Each one means exactly one thing. */
+
+  --surface-canvas: #F6F5F1;
+  --surface-card: #FFFFFF;
+  --surface-sunken: #F2F0E9;
+  --surface-deep: #ECE9DF;
+
+  --text-primary: #383838;
+  --text-secondary: #6E6E6C;
+  --text-disabled: #A0A09E;
+  --text-display: #1F1E1C;
+
+  --hairline: #E2D8CC;
+  --hairline-strong: #CEBAA7;
+
+  /* AI / generated. Pink is never decoration and never text on a light
+     ground — it is a fill, a marker, a dot. */
+  --ai: #F27DB4;
+  --ai-wash: #F4E1EA;
+  --ai-mid: #F7ACCF;
+
+  /* Interactive */
+  --interactive: #5E9FD4;
+  --interactive-wash: #E4EBF1;
+  --interactive-text: #2A6FA6;
+
+  /* Validated / positive */
+  --positive: #86B455;
+  --positive-wash: #EBEFE6;
+  --positive-text: #517031;
+
+  /* Needs review */
+  --review-wash: #F0ECE5;
+  --review-text: #8C6A2F;
+
+  /* Failed */
+  --failed-wash: #F2E6E4;
+  --failed-text: #B3402A;
+
+  --ease-standard: cubic-bezier(0.2, 0, 0, 1);
+}
+
+/* --- Ingestion orbit -------------------------------------------------------
+   Motion for the processing state. Every animation here is bound to real run
+   state — a connector only pulses while that document is actually being read —
+   so this is information, not decoration.
+
+   docs/DESIGN.md rules out an indefinite spinner for long waits. The orbit is
+   determinate: the progress ring is driven by completed documents, and each
+   node carries its own document's status. */
+
+@keyframes wb-orbit-pulse {
+  from { stroke-dashoffset: var(--wb-dash); }
+  to { stroke-dashoffset: 0; }
+}
+
+@keyframes wb-orbit-breathe {
+  0%, 100% { opacity: 0.55; }
+  50% { opacity: 1; }
+}
+
+@keyframes wb-orbit-settle {
+  from { transform: scale(0.86); opacity: 0; }
+  to { transform: scale(1); opacity: 1; }
+}
+
+.wb-orbit-flow {
+  stroke-dasharray: var(--wb-dash);
+  animation: wb-orbit-pulse 1.4s linear infinite;
+}
+
+.wb-orbit-active {
+  animation: wb-orbit-breathe 1.8s var(--ease-standard) infinite;
+}
+
+.wb-orbit-node {
+  animation: wb-orbit-settle 220ms var(--ease-standard) both;
+  transform-box: fill-box;
+  transform-origin: center;
+}
+
+.wb-orbit-ring {
+  transition: stroke-dashoffset 400ms var(--ease-standard);
+}
+
+/* --- Success tick ---------------------------------------------------------
+   Draws once. A tick that keeps redrawing reads as "still working". */
+
+@keyframes wb-tick-draw {
+  to { stroke-dashoffset: 0; }
+}
+
+.wb-tick-ring {
+  stroke-dashoffset: 132;
+  animation: wb-tick-draw 420ms var(--ease-standard) forwards;
+}
+
+.wb-tick-check {
+  stroke-dashoffset: 26;
+  animation: wb-tick-draw 260ms var(--ease-standard) 200ms forwards;
+}
+
+/* DESIGN.md: everything respects prefers-reduced-motion. State still reads —
+   colour, the tick, the ring — only the movement stops. */
+@media (prefers-reduced-motion: reduce) {
+  .wb-orbit-flow,
+  .wb-orbit-active,
+  .wb-orbit-node {
+    animation: none;
+  }
+  .wb-orbit-flow { stroke-dasharray: none; }
+  .wb-orbit-ring { transition: none; }
+
+  /* The tick still has to be a tick — it is drawn instantly, not withheld. */
+  .wb-tick-ring,
+  .wb-tick-check {
+    animation: none;
+    stroke-dashoffset: 0;
+  }
 }
 
 .dark {
