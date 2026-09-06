@@ -30,11 +30,10 @@ stage you are on, what the last agent assumed, what they deviated from, and what
 ## Current state
 
 **Stage:** 9 — Polish and ship
-**Status:** code-complete pending live verification. Stages 2–8 are written and static-regressed, but no path has touched a live database or model.
-**Last session:** 2026-09-06 — Stage 9 README, onboarding, secret scan.
-**Next action:** add real Supabase and Gemini credentials, then run the prescribed unblocking sequence in `HANDOVER.md` before claiming the build is shipped.
-**Blocked by:** no database and no Gemini key reachable from this machine (Q6/Q9/Q13). All new
-database code is written and typechecked, not executed.
+**Status:** dashboard workflow and persisted text-document ingestion are live-regressed. Database migration, RLS, one text-layer PDF ingestion, and UUID-correct Gemini extraction have been verified against the configured project; multi-document transfer and scanned/PPTX support remain unproven.
+**Last session:** 2026-09-06 — Sidebar-first workspace release.
+**Next action:** run three arbitrary source documents (presentation, contract, cap table) through `/companies/new`, then verify live crosschecks and the evidence drawer (Q13). Keep the user-requested demo asset pack explicit and separate from real portfolio data.
+**Blocked by:** no release blocker for the text-document workflow. Q13 and Q19 still block broader model/document-format claims.
 
 ---
 
@@ -124,6 +123,7 @@ Deviations from the written docs, and why. Empty is fine at the start.
 | R15 | Nothing in the docs covers a settings area | Added `/settings` with its own grouped nav and `/settings/integrations` | Requested directly, with a reference design. The switches have no OAuth backend and the page says so on its face rather than implying a connection it cannot make. |
 | R18 | `SCREENS.md` 7–11 says onboarding should link to `/companies/new`, but the implementation carried a separate storage upload form | Removed the duplicate form and now route the final onboarding step to `/companies/new` | One upload path is a correctness constraint: the unified screen applies picker validation, creates the run, and reports processing progress; onboarding's old path only wrote storage objects. |
 | R19 | `DESIGN.md` says to use one sans-serif face and leads with a restrained sand palette | The user redirected the live product toward layered white/pearl surfaces, an editorial serif reserved for display headings, and bright bounded cobalt/coral/mint/violet ambience with dither texture | The UI needs a clearer premium visual hierarchy. Semantic rules remain: pink continues to mean AI-generated content only, and data remains legible on neutral surfaces. |
+| R20 | The Stage 7 company screen used a visible horizontal tab strip, including a placeholder "Knowledge graph" tab | Removed the duplicate tab strip and placeholder source-map view. The contextual, query-driven company navigation in the sidebar is now the only primary navigation; Knowledge graph is intentionally out of the active product hierarchy. | Direct user redirection: company navigation must live in the collapsible sidebar, and the graph is not release-critical. This also fixes the prior route bug where `/companies/new` was interpreted as a selected company and the export URL omitted the company id. |
 
 ---
 
@@ -154,6 +154,7 @@ Things nobody has resolved. Add to this rather than guessing silently.
 | ~~Q9~~ | ~~Migration `0004` has never executed and RLS is unproven.~~ **Answered live: `supabase db push` applied 0001–0004 and all 7 RLS isolation cases passed.** | ~~Everything persisted~~ | Stage 10 live verification |
 | ~~Q11~~ | ~~No ingestion code has written a row.~~ **Answered live: `pnpm ingest:file` parsed a real PDF, Gemini classified it, wrote `documents` + 12 blocks, and read the contract-valid blocks back in order.** | ~~Persistence~~ | Stage 10 live verification |
 | Q19 | Gemini vision fallback for a sparse synthetic PDF returns Gemini `400 INVALID_ARGUMENT` at `parse:<uuid>`. A live PNG invocation on 2026-09-06 succeeded through the same `parseWithModel`/inline-data path (`pages: 1`, `segments: 0` for an intentionally blank image), so image fallback is no longer implicated. Diagnose PDF-specific input/model handling before claiming scanned-PDF or PPTX support. | Scanned-PDF/PPTX promise | Stage 10 live verification |
+| Q20 | The current New Company workflow creates a company and uploads its initial source set. There is no truthful existing-company document-upload route yet, so the deep-dive action now says “Add a company” rather than pretending it appends documents. | Incremental document uploads after initial ingestion | Sidebar-first release |
 
 ---
 
@@ -177,6 +178,11 @@ pnpm validate:data
 ## Session log
 
 Newest at the top. Three lines each: what you did, what broke, what the next agent should know.
+
+### 2026-09-06 — Sidebar-first workspace release
+Did: removed the duplicated horizontal company tab strip and graph placeholder, made the contextual company sidebar the single navigation system, added compact-mode access through an accessible sheet, excluded `/companies/new` from company-context matching, and repaired the export URL to include the real company id. Added shared workspace/page/artwork primitives, bounded cobalt/mint/coral/violet ambience (with pink preserved for AI state), and redirected Settings to the only implemented settings screen. Installed `simple-icons` for the pending upload-screen logo bundling pass.
+Broke / didn't finish: the user-requested explicit demo asset pack and larger run/upload screen polish were not completed before this release push. The production build compiled and passed TypeScript, then reached page-data collection; the local runner did not report a final static-generation result, so Q17 remains open. Full TypeScript and Vitest are green (81 passed / 7 expected skipped); lint has zero errors and one pre-existing raw-image warning on the upload page.
+Next agent should know: do not restore company pills or a fake graph. Company sections live in `src/lib/company-workspace.ts`; use it in both the sidebar and deep-dive page. The missing existing-company upload path is Q20, and any fictional demo data must be clearly labelled and must not appear automatically in a real organisation.
 
 ### 2026-09-06 — Visual system and workflow polish
 Did: redesigned the live dashboard around a bright ambient/dither hero, layered neutral cards, display typography, a card-based "Add a company" CTA, portfolio activity and a useful empty state; removed Add company from sidebar. Restyled the company upload and real processing screen around the same system. Added a compact, evidence-bound Ask Winback panel inside the citation drawer — it is a source-navigation helper and explicitly does not fabricate uncited analysis.
