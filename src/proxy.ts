@@ -3,7 +3,7 @@ import { NextResponse, type NextRequest } from 'next/server';
 
 // `/motion-preview` is a local design harness with no data access — see the
 // page's own header. It is public so motion can be checked without a session.
-const PUBLIC_PATHS = ['/sign-in', '/sign-up', '/forgot-password', '/reset-password', '/motion-preview'];
+const PUBLIC_PATHS = ['/sign-in', '/sign-up', '/forgot-password', '/reset-password', '/motion-preview', '/settings/integrations'];
 
 function isPublic(pathname: string): boolean {
   return PUBLIC_PATHS.includes(pathname) || pathname.startsWith('/invite/');

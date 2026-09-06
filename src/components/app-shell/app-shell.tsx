@@ -22,6 +22,12 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const showSidebar = !isPublicPath(pathname);
 
+  // /settings carries its own grouped nav and its own full-bleed layout — the
+  // product sidebar and the centred max-width main would both fight it.
+  if (pathname.startsWith('/settings')) {
+    return <div className="flex min-h-full flex-1">{children}</div>;
+  }
+
   return (
     <div className="flex min-h-full flex-1">
       {showSidebar && <Sidebar />}

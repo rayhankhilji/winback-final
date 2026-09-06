@@ -31,13 +31,12 @@ stage you are on, what the last agent assumed, what they deviated from, and what
 
 **Stage:** 4 — Ingest API and background job
 **Status:** not started. Stages 2 and 3 both have an unrun database half — read Q9 first.
-**Last session:** 2026-09-06 — Stage 3. Parsers land and are proven on real PDF/DOCX/XLSX bytes;
-`persistDocument`/`loadDocument` are written but have never touched Postgres.
-**Next action:** `POST /api/ingest` and `GET /api/runs/[id]` per `docs/API.md`, plus the failure
-matrix in `INGESTION.md` steps 3-4. **Stage 4 also carries the project's real risk — verify there
-whether the crosscheck prompts fire on non-Kestrel documents (A1/Q8).**
-**Blocked by:** nothing in code. Still no database reachable from this machine (Q6/Q9), so anything
-touching Postgres is written-but-unproven.
+**Last session:** 2026-09-06 — Stage 4 plus the motion/brand work and the integrations screen.
+**Next action:** Screen 1 (upload) and Screen 2 (processing). Screen 2's animation already exists —
+`IngestionOrbit` takes `RunProgress` straight from `GET /api/runs/[id]`, so Screen 2 is mostly
+wiring the 1.5s poll to it.
+**Blocked by:** nothing in code. Still no database and no Gemini key reachable from this machine
+(Q6/Q9/Q13), so everything touching Postgres or a live model is written-but-unproven.
 
 ---
 
@@ -53,7 +52,9 @@ Full definitions in `docs/BUILD_PLAN.md`. Mark `[x]` done, `[~]` partial, `[ ]` 
       server). The RLS proof test is written and skips itself until a database exists. See Q9.
 - [~] **3 — Parsers.** pdf-parse, mammoth, xlsx, Gemini fallback, block persistence. Parsers done and
       proven on real files; the persistence half is written but unrun for want of a database (Q9).
-- [ ] **4 — Ingest API + background job.** `/api/ingest`, `/api/runs/[id]`, failure matrix.
+- [~] **4 — Ingest API + background job.** `/api/ingest`, `/api/runs/[id]`, failure matrix. Routes,
+      job and budget caps written; **the A1 verification is done and it was a real bug** (see R13).
+      Nothing has run against a database or a live model (Q9/Q11/Q13).
 - [ ] **5 — Upload and Processing screens.**
 - [ ] **6 — Dashboard and portfolio list.**
 - [ ] **7 — Company deep dive.** Needs `recharts` added.
@@ -74,6 +75,8 @@ and say so.
 | A3 | Parsing a large PDF plus parallel Gemini calls exceeds `maxDuration = 60`, which is why ingestion is a background job. | Stage 0 review | high | No |
 | A4 | `RUN_BUDGET_MAX = 500` is too low once documents are real rather than four fixtures. | Stage 0 review | medium | No |
 | A5 | Storing `ExtractionResult` and friends as validated `jsonb` is correct; normalising them into relational tables buys nothing. | Data model | high | n/a — judgement |
+| A15 | The three cubes of the mark tile edge-to-edge with no overlap, so the logo needs no fill and works on any background. | Brand | high | Yes — computed from the brand animation's own path data and checked rendered at 460px against `LOGO.png`. |
+| A16 | Rebuilding the supplied Lottie references as SVG + CSS is the right call rather than shipping them. Reasons in `design/reference/README.md`: the integration reference carries another company's branding, Lottie colour is baked hex where CLAUDE.md wants tokens, a Lottie cannot answer `prefers-reduced-motion`, and the player is ~250KB. | Brand | medium — **judgement, and the user supplied those files expecting them to be used** | n/a — flag it if the user wants the originals shipped instead. |
 | A12 | The block-id scheme `{documentId}-p{page}-b{n}`, with n restarting per page, is stable across re-parses of the same bytes. Verified by test for determinism, but it is only stable if the parser is: a pdf-parse upgrade that changes paragraph splitting would renumber every block after the change and break existing citations. | Stage 3 | medium | Partly — determinism tested, version-stability not. **Pin the parser versions before any citation is stored for real.** |
 | A13 | Gemini vision produces usable blocks for PPTX and images (this is A6, now load-bearing). The fallback path is written and typechecks but has never run — it needs a real `GEMINI_API_KEY`, and there is no golden fixture for `parse:*` so `MOCK_LLM=1` cannot exercise it either. | Stage 3 | medium — **unverified** | **No. The entire PPTX and image path is unexecuted code.** |
 | A14 | Losing the classify call should degrade, not fail. A document that parsed correctly is kept with a filename-derived title and a MIME-derived kind rather than discarded. This is a deliberate exception to "no fallbacks just in case" — classification is a convenience, not a precondition, and the caller is told via `classified: false`. | Stage 3 | high | n/a — judgement |
@@ -109,6 +112,10 @@ Deviations from the written docs, and why. Empty is fine at the start.
 | R11 | Nothing in the docs says the Gemini surface takes file bytes | Extended `generateJson` with an optional `files` parameter | The fallback parser has to send PPTX and image bytes to Gemini, and `CLAUDE.md` forbids any file but `gemini.ts` importing `@google/genai`. Adding the parameter there was the only option that respects the rule. Text-only calls are byte-identical to before: the prompt string is still passed straight through when `files` is absent. |
 | R12 | `INGESTION.md` step 1 says mammoth converts to HTML and to split on headings, paragraphs and list items | Added a mammoth `styleMap` for Word's "List Paragraph" style | Without it mammoth only emits `<li>` when `numbering.xml` defines the list, so real Word bullets arrive as prose and lose the structure that makes them individually citable. Found because the DOCX fixture test failed, not by reading ahead. |
 
+| R13 | `BUILD_PLAN.md` Stage 4 asks whether the crosscheck prompts fire on non-Kestrel documents, expecting a yes | **They could not fire at all.** Every `CrosscheckDef` selected its inputs by hardcoded fixture id (`docIds: ['mgmt-pres', 'contracts']`), so an uploaded document with a uuid matched nothing and `runDecision` ran zero crosschecks | The procedures were general; their *inputs* were not, which is why the doc's optimism was half right. Replaced `docIds` with `docKinds`, added `defIsSatisfiable` so a comparison never runs with one side missing, and capped selection at 8 documents. The Kestrel fixtures still fire — the Stage 1 kind remap is what lets one selector match both. **A1 is not yet answered: whether the model's *answers* transfer still needs a real key (Q13).** |
+| R14 | `DESIGN.md` says long waits use a determinate stepper and that nothing animates decoratively; the user asked for an orbiting-logo loading animation | Built `IngestionOrbit` as a determinate orbit | Rather than choose between them: the ring is driven by how many documents have actually settled, each node carries its own document's real status, and a connector pulses only while that document is being parsed. It is the animation the user asked for and it carries information, so it is not decoration and not an indefinite spinner. |
+| R15 | Nothing in the docs covers a settings area | Added `/settings` with its own grouped nav and `/settings/integrations` | Requested directly, with a reference design. The switches have no OAuth backend and the page says so on its face rather than implying a connection it cannot make. |
+
 ---
 
 ## Open questions
@@ -122,6 +129,9 @@ Things nobody has resolved. Add to this rather than guessing silently.
 | Q3 | When a company is re-analysed, do old runs stay queryable or does `latest_run_id` make them dead weight? | Stage 7 | Stage 0 |
 | Q4 | Which repo is canonical once the team is awake — do we merge our branches into upstream, or does upstream merge from us? | Nothing today; matters before the demo | Setup |
 | ~~Q5~~ | ~~Does the open PR on upstream touch `src/lib/contracts/`? If so it collides with Stage 1.~~ **Answered in Setup: upstream PR #3 (`feature/phase-5-ship`, 36 files) touches no file under `src/lib/contracts/`. No collision with Stage 1.** | Stage 1 | Setup |
+| Q13 | **The A1 question is still open.** Stage 4 fixed the mechanical blocker — crosschecks now *select* uploaded documents — but whether the procedures produce good findings on documents that are not Kestrel needs a real `GEMINI_API_KEY` and real documents. Everything else in the roadmap is secondary to this. | The whole product thesis | Stage 4 |
+| Q14 | Should the supplied Lottie files ship as-is instead of the SVG rebuilds (A16)? The rebuild is smaller, tokenised and reduced-motion-aware, but it is not pixel-identical to what the user chose. | Brand sign-off | Stage 4 |
+| Q15 | `NEXT_PUBLIC_LOGOKIT_TOKEN` is unset, so `/settings/integrations` renders monogram tiles rather than real logos. A free LogoKit key turns them on with no code change. | Cosmetic only | Stage 4 |
 | Q11 | Nothing in Stage 3 wrote a row. `persistDocument`, `loadDocument` and the `--dry-run`-less half of `scripts/ingest-file.ts` are unexecuted for the same reason as Q9. Stage 3's "done when" is "write correct, ordered, addressable blocks **to the database**" — the parse half is proven on real files, the write half is not. | Stage 4 stores pipeline results in the same tables | Stage 3 |
 | Q12 | Should the parser dependency versions be pinned exactly? Block ids are permanent, and a minor `pdf-parse` release that changes paragraph splitting would renumber blocks and dangle every stored citation (A12). Currently caret ranges. | Any real stored citation | Stage 3 |
 | Q9 | Migration `0004` has never been executed. There is no Postgres on this machine — no Docker for `supabase start`, no local server, no reachable project — so the SQL is reviewed but unrun, and Stage 2's "done when" (org A cannot read org B's rows, **proven by a test**) is unproven. The test exists at `src/lib/__tests__/rls.integration.test.ts` and skips itself with a visible marker rather than passing vacuously. | Everything from Stage 3 on rests on this schema | Stage 2 |
@@ -160,6 +170,28 @@ Did:
 Broke / didn't finish: 
 Next agent should know: 
 ```
+
+### 2026-09-06 — Stage 4, brand and integrations
+Did: `POST /api/ingest` (202 + run id, work continues after the response) and `GET /api/runs/[id]`
+(progress shell only — result blobs stay out of a 1.5s poll). `runIngestion` walks parse → extract →
+analyse → crosscheck writing `runs.stage`/`stage_detail`, isolates per-document failure so one bad
+file never fails a run, and checks `RUN_BUDGET_MAX` before each model phase. `/api/docs?companyId`
+and `/api/extract` take a companyId with the fixture path kept as a union member.
+**The Stage 4 verification found a real bug, not a confirmation** — see R13. Crosschecks could not
+fire on uploaded documents at all. Fixed by selecting on `docKinds`; 6 tests pin it.
+Also built the brand and motion layer the user asked for: `WinbackMark` (the quad-cube logo as
+computed isometric geometry — A15), `IngestionOrbit` (determinate, R14), `MenuButton`, `SuccessTick`,
+the DESIGN.md colour tokens in `globals.css`, `/motion-preview` as a harness, and
+`/settings/integrations` with its own grouped settings nav (R15). Source Lotties kept unbundled in
+`design/reference/` with the reasoning written down (A16, Q14).
+Wrote `scripts/seed-test-account.ts` (`pnpm seed:test`) creating test@test.com / test123 with an org,
+membership and a company. Deliberately a seed and not a hardcoded bypass: auth is Supabase end to
+end and every query runs under RLS, so a fake session would have to fake the entire data layer too
+and would then have to be kept out of production forever.
+Broke / didn't finish: nothing ran against a database or a live model. Q13 is now the one that
+matters — the mechanical blocker on A1 is gone, but whether the findings transfer is unanswered.
+Next agent should know: Screen 2 is mostly wiring — `IngestionOrbit` already takes `RunProgress`
+exactly as `GET /api/runs/[id]` returns it. Check `/motion-preview` before touching any of it.
 
 ### 2026-09-06 — Stage 3
 Did: added `pdf-parse`, `mammoth`, `xlsx` and built `src/lib/ingestion/` — `blocks.ts` (the single
