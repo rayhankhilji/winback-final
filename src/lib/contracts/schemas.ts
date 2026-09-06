@@ -487,9 +487,65 @@ export const RunSchema = z.object({
   version: z.literal(1), // bump if the localStorage shape changes
 });
 
+// ----------------------------------------------------------------------------
+// 3.10 Ingestion runs (Stage 4)
+// ----------------------------------------------------------------------------
+
+/** Mirrors the `runs.status` check constraint in migration 0004. */
+export const RunStatusSchema = z.enum(['queued', 'running', 'complete', 'failed']);
+
+/** Mirrors `runs.stage`. The same four-stage shape the existing stepper renders. */
+export const RunStageSchema = z.enum(['parse', 'extract', 'analyse', 'crosscheck']);
+
+/** Mirrors `documents.status`. */
+export const DocumentStatusSchema = z.enum(['pending', 'parsing', 'parsed', 'failed']);
+
+/**
+ * What the processing screen needs about one document. Deliberately not a
+ * SourceDoc: a failed document has no blocks, and it must still appear as a
+ * named row with a reason rather than vanish.
+ */
+export const DocumentProgressSchema = z.object({
+  id: z.string(),
+  filename: z.string(),
+  title: z.string().nullable(),
+  status: DocumentStatusSchema,
+  failureReason: z.string().nullable(),
+});
+
+/**
+ * The progress shell polled every 1.5s. Result blobs are deliberately absent:
+ * shipping five JSON payloads on every poll is the obvious way to make a
+ * 40-second wait feel slower than it is.
+ */
+export const RunProgressSchema = z.object({
+  id: z.string(),
+  status: RunStatusSchema,
+  stage: RunStageSchema,
+  stageDetail: z.string().nullable(),
+  error: z.string().nullable(),
+  documents: z.array(DocumentProgressSchema),
+  elapsedMs: z.number(),
+  llmCalls: z.number(),
+});
+
 // --- Request bodies ---------------------------------------------------------
 
-export const ExtractRequestSchema = z.object({ docIds: z.array(SourceDocIdSchema) });
+export const IngestRequestSchema = z.object({
+  companyId: z.string().uuid(),
+  storagePaths: z.array(z.string().min(1)).min(1),
+});
+
+/**
+ * Both directions are valid and this is deliberately a union, not two routes:
+ * `companyId` loads a real company's uploaded documents, `docIds` keeps the
+ * Kestrel fixture path alive. Widening it to a union rather than replacing it
+ * is what stops MOCK_LLM from breaking.
+ */
+export const ExtractRequestSchema = z.union([
+  z.object({ docIds: z.array(SourceDocIdSchema) }),
+  z.object({ companyId: z.string().uuid() }),
+]);
 export const BenchmarkRequestSchema = z.object({ profile: CompanyProfileSchema });
 export const PortfolioRequestSchema = z.object({
   profile: CompanyProfileSchema,
@@ -510,6 +566,8 @@ export const MemoRequestSchema = z.object({
 // --- Response payloads -------------------------------------------------------
 
 export const DocsResponseSchema = ApiResponseSchema(z.object({ docs: z.array(SourceDocSchema) }));
+export const IngestResponseSchema = ApiResponseSchema(z.object({ runId: z.string() }));
+export const RunProgressResponseSchema = ApiResponseSchema(RunProgressSchema);
 export const ExtractResponseSchema = ApiResponseSchema(ExtractionResultSchema);
 export const BenchmarkResponseSchema = ApiResponseSchema(BenchmarkResultSchema);
 export const PortfolioResponseSchema = ApiResponseSchema(PortfolioImpactSchema);

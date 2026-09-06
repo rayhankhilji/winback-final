@@ -170,3 +170,58 @@ export async function loadDocument(db: SupabaseClient, documentId: string): Prom
   }
   return parsed.data;
 }
+
+/**
+ * Every parsed document for a company, as SourceDocs. This is what turns
+ * `/api/extract` from a fixture-only route into one that runs on a real
+ * upload: the pipeline already operates on `SourceDoc[]` and needs no change.
+ *
+ * Failed and still-parsing documents are excluded — a document with no blocks
+ * would contribute nothing and would make every citation against it dangle.
+ */
+export async function loadCompanyDocuments(
+  db: SupabaseClient,
+  companyId: string,
+): Promise<SourceDoc[]> {
+  const { data, error } = await db
+    .from('documents')
+    .select('id')
+    .eq('company_id', companyId)
+    .eq('status', 'parsed')
+    .order('created_at', { ascending: true });
+  if (error) throw new PersistError(`document list for company ${companyId}`, error);
+
+  const docs: SourceDoc[] = [];
+  for (const row of data ?? []) docs.push(await loadDocument(db, row.id as string));
+  return docs;
+}
+
+/** Create the `pending` rows that the processing screen renders before any
+ *  parsing has happened, so a file never appears out of nowhere mid-run. */
+export async function createPendingDocuments(
+  db: SupabaseClient,
+  orgId: string,
+  companyId: string,
+  entries: Array<{ id: string; storagePath: string; filename: string; mimeType: string }>,
+): Promise<void> {
+  const rows = entries.map((e) => ({
+    id: e.id,
+    org_id: orgId,
+    company_id: companyId,
+    storage_path: e.storagePath,
+    filename: e.filename,
+    mime_type: e.mimeType,
+    status: 'pending' as const,
+  }));
+  const { error } = await db.from('documents').insert(rows);
+  if (error) throw new PersistError(`pending document rows for company ${companyId}`, error);
+}
+
+export async function setDocumentStatus(
+  db: SupabaseClient,
+  documentId: string,
+  status: 'pending' | 'parsing' | 'parsed' | 'failed',
+): Promise<void> {
+  const { error } = await db.from('documents').update({ status }).eq('id', documentId);
+  if (error) throw new PersistError(`status update for document ${documentId}`, error);
+}

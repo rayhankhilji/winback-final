@@ -21,7 +21,7 @@ export const def: CrosscheckDef = {
   id: 'recurring_revenue',
   title: 'Revenue durability characterisation',
   workstream: 'commercial',
-  docIds: ['mgmt-pres', 'contracts'],
+  docKinds: ['presentation', 'contract'],
   procedure: `Management's characterisation of revenue durability must be tested against the actual \
 contractual commitments underlying that revenue. First, identify how management describes the \
 durability or quality of revenue — any statement about how much of it recurs, renews, or is otherwise \

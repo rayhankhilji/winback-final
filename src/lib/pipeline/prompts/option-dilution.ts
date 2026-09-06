@@ -18,7 +18,7 @@ export const def: CrosscheckDef = {
   id: 'option_dilution',
   title: 'Fully diluted share reconciliation',
   workstream: 'financial',
-  docIds: ['cap-table', 'options'],
+  docKinds: ['cap_table'],
   procedure: `The capitalisation table must reconcile to all equity instruments the board has approved. \
 First, identify the fully diluted share count as stated in the capitalisation table, and the basis on \
 which that table says it was prepared (any footnote or qualifying language about what it does or does \

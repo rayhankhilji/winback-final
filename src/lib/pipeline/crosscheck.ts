@@ -15,13 +15,19 @@ import { generateJson } from '@/lib/pipeline/gemini';
 import { renderDocForPrompt, validateEvidence } from '@/lib/evidence';
 import { ModelEvidenceRefSchema, evidenceArraySchema, nullable, toEvidenceRef } from '@/lib/pipeline/schema-helpers';
 import { CrosscheckStatusSchema } from '@/lib/contracts/schemas';
-import type { CrosscheckId, EvidenceRef, SourceDoc, SourceDocId, Workstream } from '@/lib/contracts/types';
+import type { CrosscheckId, DocKind, EvidenceRef, SourceDoc, Workstream } from '@/lib/contracts/types';
 
 export interface CrosscheckDef {
   id: CrosscheckId;
   title: string;
   workstream: Workstream;
-  docIds: SourceDocId[];
+  /**
+   * Which kinds of document this procedure needs, not which specific ones.
+   * Selecting by id only ever matched the four Kestrel fixtures, so no
+   * crosscheck could fire on an uploaded document — the procedures were
+   * general but their inputs were not.
+   */
+  docKinds: DocKind[];
   /** A general diligence procedure — see erd.md Part 5 §5.2 Rule 2. Never answer-shaped. */
   procedure: string;
   /** What to quantify IF a gap is found. Still general — never the planted numbers. */
@@ -148,14 +154,37 @@ export interface CrosscheckRunResult {
   droppedEvidenceRefs: number;
 }
 
+/**
+ * Every document of a kind this procedure reads, in document order. A real
+ * upload may hold six contracts where the fixture set held one bundle, so this
+ * returns all of them rather than the first match — but caps the total, since
+ * the whole selection is inlined into one prompt.
+ */
+export function selectDocsForDef(def: CrosscheckDef, allDocs: SourceDoc[]): SourceDoc[] {
+  return allDocs.filter((d) => def.docKinds.includes(d.kind)).slice(0, MAX_DOCS_PER_CROSSCHECK);
+}
+
+/**
+ * A procedure that compares two things needs both of them. Running a
+ * characterisation-versus-contract check with no contracts would produce a
+ * confident answer from half the evidence, which is worse than not running.
+ */
+export function defIsSatisfiable(def: CrosscheckDef, allDocs: SourceDoc[]): boolean {
+  return def.docKinds.every((kind) => allDocs.some((d) => d.kind === kind));
+}
+
+/** Bounded so a company with forty contracts cannot blow the context window. */
+export const MAX_DOCS_PER_CROSSCHECK = 8;
+
 export async function runCrosscheckDef(
   def: CrosscheckDef,
   version: string,
   allDocs: SourceDoc[],
 ): Promise<CrosscheckRunResult> {
-  const docs = def.docIds
-    .map((id) => allDocs.find((d) => d.id === id))
-    .filter((d): d is SourceDoc => Boolean(d));
+  const docs = selectDocsForDef(def, allDocs);
+  if (docs.length === 0) {
+    throw new Error(`crosscheck ${def.id}: no document of kind ${def.docKinds.join('/')} in scope`);
+  }
   const { systemInstruction, prompt } = buildCrosscheckPrompt(def, docs);
 
   const { data, model, ms } = await generateJson<ModelCrosscheck>({

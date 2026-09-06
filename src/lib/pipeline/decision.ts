@@ -11,7 +11,7 @@
 import { createHash } from 'node:crypto';
 import { nanoid } from 'nanoid';
 import { CROSSCHECK_DEFS } from '@/lib/pipeline/prompts';
-import { runCrosscheckDef } from '@/lib/pipeline/crosscheck';
+import { defIsSatisfiable, runCrosscheckDef, selectDocsForDef } from '@/lib/pipeline/crosscheck';
 import {
   computeOptionDilutionQuantification,
   computeRecurringRevenueQuantification,
@@ -49,7 +49,10 @@ export async function runDecision(
   profile: CompanyProfile,
   allDocs: SourceDoc[],
 ): Promise<DecisionResult> {
-  const relevantDefs = CROSSCHECK_DEFS.filter(({ def }) => def.docIds.some((id) => docIds.includes(id)));
+  // Scope first (which documents this run covers), then satisfiability (does
+  // that scope actually contain every kind the procedure compares).
+  const inScope = allDocs.filter((d) => docIds.includes(d.id));
+  const relevantDefs = CROSSCHECK_DEFS.filter(({ def }) => defIsSatisfiable(def, inScope));
 
   const settled = await Promise.allSettled(
     relevantDefs.map(({ def, version }) => runCrosscheckDef(def, version, allDocs).then((run) => ({ def, version, run }))),
@@ -106,7 +109,16 @@ export async function runDecision(
         actor: 'model',
         producedBy: model,
         promptVersion: version,
-        inputHash: sha256Hex(JSON.stringify({ defId: def.id, docIds: def.docIds, profileStatementId: profile.statementId })),
+        // The documents actually read, not the kinds requested: provenance has to
+        // say which inputs produced this claim, and two runs over different
+        // uploads of the same kinds are not the same statement.
+        inputHash: sha256Hex(
+          JSON.stringify({
+            defId: def.id,
+            docIds: selectDocsForDef(def, inScope).map((d) => d.id),
+            profileStatementId: profile.statementId,
+          }),
+        ),
         generatedAt: new Date().toISOString(),
         latencyMs: ms,
       },
