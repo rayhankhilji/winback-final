@@ -6,7 +6,7 @@ import { NextResponse, type NextRequest } from 'next/server';
 const PUBLIC_PATHS = ['/sign-in', '/sign-up', '/forgot-password', '/reset-password', '/motion-preview', '/settings/integrations'];
 
 function isPublic(pathname: string): boolean {
-  return PUBLIC_PATHS.includes(pathname) || pathname.startsWith('/invite/');
+  return PUBLIC_PATHS.includes(pathname) || pathname.startsWith('/invite/') || pathname.startsWith('/anim/');
 }
 
 export async function proxy(request: NextRequest) {

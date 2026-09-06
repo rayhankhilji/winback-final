@@ -1,3 +1,11 @@
+# pnpm 9 and older refuse to run in a directory with a workspace file that
+# has no `packages` field — "packages field missing or empty". The repo pins
+# pnpm 11 via packageManager, but a machine whose global pnpm is older hits
+# that error on every command. Declaring the root as the only package makes
+# the file valid for both.
+packages:
+  - '.'
+
 allowBuilds:
   '@firebase/util': true
   '@google/genai': true

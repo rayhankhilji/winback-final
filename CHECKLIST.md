@@ -55,7 +55,9 @@ Full definitions in `docs/BUILD_PLAN.md`. Mark `[x]` done, `[~]` partial, `[ ]` 
 - [~] **4 — Ingest API + background job.** `/api/ingest`, `/api/runs/[id]`, failure matrix. Routes,
       job and budget caps written; **the A1 verification is done and it was a real bug** (see R13).
       Nothing has run against a database or a live model (Q9/Q11/Q13).
-- [ ] **5 — Upload and Processing screens.**
+- [~] **5 — Upload and Processing screens.** Both built (`/companies/new`, `/runs/[id]`). Neither has
+      completed a real run — no database, no model key (Q9/Q11/Q13). Onboarding still carries its own
+      upload path (Q16).
 - [ ] **6 — Dashboard and portfolio list.**
 - [ ] **7 — Company deep dive.** Needs `recharts` added.
 - [ ] **8 — Document viewer on real documents.**
@@ -114,6 +116,8 @@ Deviations from the written docs, and why. Empty is fine at the start.
 
 | R13 | `BUILD_PLAN.md` Stage 4 asks whether the crosscheck prompts fire on non-Kestrel documents, expecting a yes | **They could not fire at all.** Every `CrosscheckDef` selected its inputs by hardcoded fixture id (`docIds: ['mgmt-pres', 'contracts']`), so an uploaded document with a uuid matched nothing and `runDecision` ran zero crosschecks | The procedures were general; their *inputs* were not, which is why the doc's optimism was half right. Replaced `docIds` with `docKinds`, added `defIsSatisfiable` so a comparison never runs with one side missing, and capped selection at 8 documents. The Kestrel fixtures still fire — the Stage 1 kind remap is what lets one selector match both. **A1 is not yet answered: whether the model's *answers* transfer still needs a real key (Q13).** |
 | R14 | `DESIGN.md` says long waits use a determinate stepper and that nothing animates decoratively; the user asked for an orbiting-logo loading animation | Built `IngestionOrbit` as a determinate orbit | Rather than choose between them: the ring is driven by how many documents have actually settled, each node carries its own document's real status, and a connector pulses only while that document is being parsed. It is the animation the user asked for and it carries information, so it is not decoration and not an indefinite spinner. |
+| R16 | `SCREENS.md` 2 says to reuse the existing four-stage stepper in `src/components/app-shell/` and not build a second one | Built `src/components/ingest/stage-stepper.tsx` | There is no stepper in `app-shell/` — the doc is wrong about the codebase. Built once, in the place the instruction should now point at. **`SCREENS.md` needs correcting.** |
+| R17 | The supplied orbit animation was to be rebuilt natively (R14/A16) | Also ship the original SVG with only its gear cluster swapped for the Winback mark, at `/anim/orbit-winback.svg` | The user twice asked for their own assets, and they were right that the rebuild threw away the orbiting product marks that made the reference good. The SVG animates via SMIL with no player, so it costs one cached request and no JavaScript. `scripts/build-orbit-svg.ts` (`pnpm build:orbit`) regenerates it and throws if the reference no longer matches, rather than silently keeping the gears. The native `IngestionOrbit` stays for the data-driven per-document view. |
 | R15 | Nothing in the docs covers a settings area | Added `/settings` with its own grouped nav and `/settings/integrations` | Requested directly, with a reference design. The switches have no OAuth backend and the page says so on its face rather than implying a connection it cannot make. |
 
 ---
@@ -129,6 +133,7 @@ Things nobody has resolved. Add to this rather than guessing silently.
 | Q3 | When a company is re-analysed, do old runs stay queryable or does `latest_run_id` make them dead weight? | Stage 7 | Stage 0 |
 | Q4 | Which repo is canonical once the team is awake — do we merge our branches into upstream, or does upstream merge from us? | Nothing today; matters before the demo | Setup |
 | ~~Q5~~ | ~~Does the open PR on upstream touch `src/lib/contracts/`? If so it collides with Stage 1.~~ **Answered in Setup: upstream PR #3 (`feature/phase-5-ship`, 36 files) touches no file under `src/lib/contracts/`. No collision with Stage 1.** | Stage 1 | Setup |
+| Q16 | Onboarding still carries its own upload implementation. `SCREENS.md` 7-11 says it should link to `/companies/new` so there is one upload code path. Not done — onboarding is working Stage 0 code and rewiring it blind, with no way to test the flow, risks breaking the only auth path that exists. | Stage 9 tidy-up | Stage 5 |
 | Q13 | **The A1 question is still open.** Stage 4 fixed the mechanical blocker — crosschecks now *select* uploaded documents — but whether the procedures produce good findings on documents that are not Kestrel needs a real `GEMINI_API_KEY` and real documents. Everything else in the roadmap is secondary to this. | The whole product thesis | Stage 4 |
 | Q14 | Should the supplied Lottie files ship as-is instead of the SVG rebuilds (A16)? The rebuild is smaller, tokenised and reduced-motion-aware, but it is not pixel-identical to what the user chose. | Brand sign-off | Stage 4 |
 | Q15 | `NEXT_PUBLIC_LOGOKIT_TOKEN` is unset, so `/settings/integrations` renders monogram tiles rather than real logos. A free LogoKit key turns them on with no code change. | Cosmetic only | Stage 4 |
@@ -170,6 +175,20 @@ Did:
 Broke / didn't finish: 
 Next agent should know: 
 ```
+
+### 2026-09-06 — Stage 5
+Did: `/companies/new` (name, sector, drag-and-drop, per-file rows, picker-level rejection with a
+named reason before a byte uploads) and `/runs/[id]` (1.5s poll, stepper, verbatim `stage_detail`,
+elapsed seconds, per-document status with failure reasons inline, sonner toast then route home on
+completion). `src/lib/client/ingest.ts` keeps the UI off `fetch`. Built the four-stage stepper the
+docs said already existed (R16). Shipped the user's own orbit animation with the gears swapped for
+the mark via `pnpm build:orbit` (R17). Fixed `pnpm-workspace.yaml` so a machine with pnpm 9 can run
+the repo at all — it was erroring on every command with "packages field missing or empty".
+Broke / didn't finish: no run has ever completed, so neither screen has been seen with real data —
+both were checked rendering only. Stages 6-9 not started.
+Next agent should know: Screen 2 is wired to `GET /api/runs/[id]` exactly as the contract returns it,
+so the moment a database exists it should work without changes. Q16 (onboarding's duplicate upload
+path) is deliberately left alone.
 
 ### 2026-09-06 — Stage 4, brand and integrations
 Did: `POST /api/ingest` (202 + run id, work continues after the response) and `GET /api/runs/[id]`

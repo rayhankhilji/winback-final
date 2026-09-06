@@ -12,7 +12,8 @@
     "validate:data": "tsx scripts/validate-data.ts",
     "record:golden": "tsx scripts/record-golden.ts",
     "ingest:file": "tsx scripts/ingest-file.ts",
-    "seed:test": "tsx scripts/seed-test-account.ts"
+    "seed:test": "tsx scripts/seed-test-account.ts",
+    "build:orbit": "tsx scripts/build-orbit-svg.ts"
   },
   "dependencies": {
     "@base-ui/react": "^1.8.0",
